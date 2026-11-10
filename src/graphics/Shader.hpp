@@ -10,6 +10,7 @@ namespace atmogl
     {
     public:
         Shader(const std::string &vertexPath, const std::string &fragmentPath);
+        explicit Shader(const std::string &computePath);
         ~Shader();
 
         Shader(const Shader &) = delete;
@@ -28,5 +29,6 @@ namespace atmogl
         static std::string readFile(const std::string &path);
         static GLuint compileShader(GLenum type, const std::string &source,
                                     const std::string &debugName);
+        void linkProgram();
     };
 }

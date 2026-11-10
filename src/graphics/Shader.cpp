@@ -22,21 +22,7 @@ namespace atmogl
             programId = glCreateProgram();
             glAttachShader(programId, vertexShader);
             glAttachShader(programId, fragmentShader);
-            glLinkProgram(programId);
-
-            GLint success = GL_FALSE;
-            glGetProgramiv(programId, GL_LINK_STATUS, &success);
-
-            if (!success)
-            {
-                GLint logLength = 0;
-                glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &logLength);
-
-                std::string log(logLength, '\0');
-                glGetProgramInfoLog(programId, logLength, nullptr, log.data());
-
-                throw std::runtime_error("Shader program link error:\n" + log);
-            }
+            linkProgram();
         }
         catch (...)
         {
@@ -56,6 +42,31 @@ namespace atmogl
         glDetachShader(programId, fragmentShader);
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
+    }
+
+    Shader::Shader(const std::string &computePath)
+    {
+        const std::string source = readFile(computePath);
+        const GLuint computeShader = compileShader(GL_COMPUTE_SHADER, source, computePath);
+
+        try
+        {
+            programId = glCreateProgram();
+            glAttachShader(programId, computeShader);
+            linkProgram();
+        }
+        catch (...)
+        {
+            glDeleteShader(computeShader);
+            if (programId != 0)
+            {
+                glDeleteProgram(programId);
+            }
+            throw;
+        }
+
+        glDetachShader(programId, computeShader);
+        glDeleteShader(computeShader);
     }
 
     Shader::~Shader()
@@ -140,5 +151,24 @@ namespace atmogl
         }
 
         return shader;
+    }
+
+    void Shader::linkProgram()
+    {
+        glLinkProgram(programId);
+
+        GLint success = GL_FALSE;
+        glGetProgramiv(programId, GL_LINK_STATUS, &success);
+
+        if (!success)
+        {
+            GLint logLength = 0;
+            glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &logLength);
+
+            std::string log(logLength, '\0');
+            glGetProgramInfoLog(programId, logLength, nullptr, log.data());
+
+            throw std::runtime_error("Shader program link error:\n" + log);
+        }
     }
 }
