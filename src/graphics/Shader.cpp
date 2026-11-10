@@ -87,6 +87,15 @@ namespace atmogl
         return programId;
     }
 
+    void Shader::setInt(const std::string &name, int value) const
+    {
+        const GLint location = glGetUniformLocation(programId, name.c_str());
+        if (location != -1)
+        {
+            glUniform1i(location, value);
+        }
+    }
+
     void Shader::setFloat(const std::string &name, float value) const
     {
         const GLint location = glGetUniformLocation(programId, name.c_str());
@@ -102,6 +111,24 @@ namespace atmogl
         if (location != -1)
         {
             glUniform3fv(location, 1, glm::value_ptr(value));
+        }
+    }
+
+    void Shader::setVec4(const std::string &name, const glm::vec4 &value) const
+    {
+        const GLint location = glGetUniformLocation(programId, name.c_str());
+        if (location != -1)
+        {
+            glUniform4fv(location, 1, glm::value_ptr(value));
+        }
+    }
+
+    void Shader::setMat3(const std::string &name, const glm::mat3 &matrix) const
+    {
+        const GLint location = glGetUniformLocation(programId, name.c_str());
+        if (location != -1)
+        {
+            glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(matrix));
         }
     }
 
