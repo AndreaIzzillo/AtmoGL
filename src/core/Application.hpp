@@ -35,7 +35,7 @@ namespace atmogl
         std::unique_ptr<Shader> shader;
         std::unique_ptr<Shader> computeShader;
         std::unique_ptr<Shader> screenShader;
-        std::unique_ptr<Mesh> mesh;
+        std::unique_ptr<Mesh> terrain;
         std::unique_ptr<Mesh> screenQuad;
         std::vector<RenderObject> objects;
 

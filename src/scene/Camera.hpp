@@ -35,19 +35,19 @@ namespace atmogl
     private:
         void rotate(float yawDelta, float pitchDelta);
 
-        glm::vec3 position = { 0.0f, 1.5f, 6.0f };
+        glm::vec3 position = { 0.0f, 500.0f, 0.0f };
         glm::vec3 front = { 0.0f, 0.0f, -1.0f };
         glm::vec3 worldUp = { 0.0f, 1.0f, 0.0f };
         glm::vec3 up = { 0.0f, 1.0f, 0.0f };
         glm::vec3 right = { 1.0f, 0.0f, 0.0f };
 
-        float movementSpeed = 5.0f;
+        float movementSpeed = 100.0f;
         float rotationSpeed = 90.0f;
         float mouseSensitivity = 0.1f;
 
         float fov = 60.0f;
         float aspectRatio = 1.0f;
-        float nearPlane = 0.1f;
-        float farPlane = 500.0f;
+        float nearPlane = 1.0f;
+        float farPlane = 5000.0f;
     };
 }

@@ -39,13 +39,11 @@ namespace atmogl
         shader = std::make_unique<Shader>("shaders/mesh.vert", "shaders/mesh.frag");
         computeShader = std::make_unique<Shader>("shaders/invert.comp");
         screenShader = std::make_unique<Shader>("shaders/screen.vert", "shaders/screen.frag");
-        mesh = MeshFactory::createCube(glm::vec3(0.8f, 0.4f, 0.2f));
+
+        terrain = MeshFactory::createTerrain(glm::vec3(0.5f, 0.2f, 0.2f), glm::vec3(0.8f, 0.3f, 0.0f));
         screenQuad = MeshFactory::createQuad();
 
-        objects.emplace_back(*mesh, *shader);
-        objects.back().transform.position = glm::vec3(0.0f, 1.0f, 0.0f);
-        objects.back().transform.rotation = glm::vec3(0.2f, 0.5f, 0.0f);
-        objects.back().transform.scale = glm::vec3(2.0f);
+        objects.emplace_back(*terrain, *shader);
     }
 
     void Application::run()
@@ -224,7 +222,7 @@ namespace atmogl
         {
             instance->objects.clear();
             instance->screenQuad.reset();
-            instance->mesh.reset();
+            instance->terrain.reset();
             instance->screenShader.reset();
             instance->computeShader.reset();
             instance->shader.reset();
