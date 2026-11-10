@@ -2,6 +2,7 @@
 
 #include <GL/freeglut.h>
 #include <algorithm>
+#include <glm/gtc/color_space.hpp>
 
 #include "graphics/MeshFactory.hpp"
 
@@ -40,7 +41,10 @@ namespace atmogl
         computeShader = std::make_unique<Shader>("shaders/invert.comp");
         screenShader = std::make_unique<Shader>("shaders/screen.vert", "shaders/screen.frag");
 
-        terrain = MeshFactory::createTerrain(glm::vec3(0.5f, 0.2f, 0.2f), glm::vec3(0.8f, 0.3f, 0.0f));
+        const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.5f, 0.2f, 0.2f));
+        const auto highColor = glm::convertSRGBToLinear(glm::vec3(0.8f, 0.3f, 0.0f));
+        terrain = MeshFactory::createTerrain(lowColor, highColor);
+
         screenQuad = MeshFactory::createQuad();
 
         objects.emplace_back(*terrain, *shader);
@@ -94,6 +98,7 @@ namespace atmogl
     {
         sceneFramebuffer.bind();
 
+        const auto clearColor = glm::convertSRGBToLinear(glm::vec3(0.08f, 0.10f, 0.14f));
         const Texture2D &texture = sceneFramebuffer.getColorTexture();
         glViewport(0, 0, texture.getWidth(), texture.getHeight());
         glEnable(GL_DEPTH_TEST);
@@ -101,7 +106,7 @@ namespace atmogl
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glDisable(GL_BLEND);
-        glClearColor(0.08f, 0.10f, 0.14f, 1.0f);
+        glClearColor(clearColor.r, clearColor.g, clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         for (const RenderObject &object : objects)
@@ -128,9 +133,11 @@ namespace atmogl
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
+        glDisable(GL_FRAMEBUFFER_SRGB);
 
         sceneFramebuffer.getColorTexture().bind(0);
         screenShader->use();
+        screenShader->setFloat("uExposure", exposure);
         screenQuad->draw();
     }
 

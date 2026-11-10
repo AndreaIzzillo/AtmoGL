@@ -65,7 +65,8 @@ namespace atmogl
         return std::make_unique<Mesh>(vertices, indices);
     }
 
-    std::unique_ptr<Mesh> MeshFactory::createTerrain(const glm::vec3 &lowColor, const glm::vec3 &highColor)
+    std::unique_ptr<Mesh> MeshFactory::createTerrain(const glm::vec3 &lowColor,
+                                                     const glm::vec3 &highColor)
     {
         constexpr float yRef = 0.0f;
         constexpr int gridSize = 2048;

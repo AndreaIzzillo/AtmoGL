@@ -32,6 +32,8 @@ namespace atmogl
         Framebuffer sceneFramebuffer;
         Camera camera;
 
+        float exposure = 1.0f;
+
         std::unique_ptr<Shader> shader;
         std::unique_ptr<Shader> computeShader;
         std::unique_ptr<Shader> screenShader;

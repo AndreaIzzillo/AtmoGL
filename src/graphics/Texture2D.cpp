@@ -28,7 +28,7 @@ namespace atmogl
         width = newWidth;
         height = newHeight;
         glBindTexture(GL_TEXTURE_2D, id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                      nullptr);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
@@ -41,7 +41,7 @@ namespace atmogl
 
     void Texture2D::bindImage(GLuint unit, GLenum access) const
     {
-        glBindImageTexture(unit, id, 0, GL_FALSE, 0, access, GL_RGBA8);
+        glBindImageTexture(unit, id, 0, GL_FALSE, 0, access, GL_RGBA16F);
     }
 
     GLuint Texture2D::getId() const
