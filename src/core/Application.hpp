@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "core/Window.hpp"
+#include "graphics/Framebuffer.hpp"
 #include "graphics/Mesh.hpp"
-#include "graphics/Renderer.hpp"
 #include "graphics/Shader.hpp"
 #include "scene/Camera.hpp"
 #include "scene/RenderObject.hpp"
@@ -29,11 +29,14 @@ namespace atmogl
 
     private:
         Window window;
-        Renderer renderer;
+        Framebuffer sceneFramebuffer;
         Camera camera;
 
         std::unique_ptr<Shader> shader;
+        std::unique_ptr<Shader> computeShader;
+        std::unique_ptr<Shader> screenShader;
         std::unique_ptr<Mesh> mesh;
+        std::unique_ptr<Mesh> screenQuad;
         std::vector<RenderObject> objects;
 
         std::array<bool, 256> keys{};
@@ -45,6 +48,9 @@ namespace atmogl
         static Application *instance;
 
         void loadScene();
+        void renderScene();
+        void processScene();
+        void presentScene();
 
         static void displayCallback();
         static void idleCallback();

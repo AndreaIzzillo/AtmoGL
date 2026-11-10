@@ -50,4 +50,17 @@ namespace atmogl
 
         return std::make_unique<Mesh>(vertices, indices);
     }
+
+    std::unique_ptr<Mesh> MeshFactory::createQuad()
+    {
+        const glm::vec3 normal(0.0f, 0.0f, 1.0f);
+        const glm::vec3 color(1.0f);
+        const std::vector<Vertex> vertices = { { { -1.0f, -1.0f, 0.0f }, normal, color },
+                                               { { 1.0f, -1.0f, 0.0f }, normal, color },
+                                               { { 1.0f, 1.0f, 0.0f }, normal, color },
+                                               { { -1.0f, 1.0f, 0.0f }, normal, color } };
+        const std::vector<unsigned int> indices = { 0, 1, 2, 0, 2, 3 };
+
+        return std::make_unique<Mesh>(vertices, indices);
+    }
 }

@@ -13,7 +13,7 @@ namespace atmogl
         : window(argc, argv, 1280, 720, "AtmoGL")
         , camera(static_cast<float>(window.getWidth()) / static_cast<float>(window.getHeight()))
     {
-        renderer.init();
+        sceneFramebuffer.init(window.getWidth(), window.getHeight());
         loadScene();
 
         instance = this;
@@ -37,7 +37,10 @@ namespace atmogl
     void Application::loadScene()
     {
         shader = std::make_unique<Shader>("shaders/mesh.vert", "shaders/mesh.frag");
+        computeShader = std::make_unique<Shader>("shaders/invert.comp");
+        screenShader = std::make_unique<Shader>("shaders/screen.vert", "shaders/screen.frag");
         mesh = MeshFactory::createCube(glm::vec3(0.8f, 0.4f, 0.2f));
+        screenQuad = MeshFactory::createQuad();
 
         objects.emplace_back(*mesh, *shader);
         objects.back().transform.position = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -82,12 +85,55 @@ namespace atmogl
 
     void Application::render()
     {
-        renderer.clear();
+        renderScene();
+        processScene();
+        presentScene();
+
+        window.swapBuffers();
+    }
+
+    void Application::renderScene()
+    {
+        sceneFramebuffer.bind();
+
+        const Texture2D &texture = sceneFramebuffer.getColorTexture();
+        glViewport(0, 0, texture.getWidth(), texture.getHeight());
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glDisable(GL_BLEND);
+        glClearColor(0.08f, 0.10f, 0.14f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         for (const RenderObject &object : objects)
         {
             object.draw(camera);
         }
-        window.swapBuffers();
+    }
+
+    void Application::processScene()
+    {
+        const Texture2D &texture = sceneFramebuffer.getColorTexture();
+        texture.bindImage(0, GL_READ_WRITE);
+
+        computeShader->use();
+        glDispatchCompute((texture.getWidth() + 7) / 8, (texture.getHeight() + 7) / 8, 1);
+        glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+    }
+
+    void Application::presentScene()
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        glViewport(0, 0, window.getWidth(), window.getHeight());
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
+
+        sceneFramebuffer.getColorTexture().bind(0);
+        screenShader->use();
+        screenQuad->draw();
     }
 
     void Application::displayCallback()
@@ -165,6 +211,10 @@ namespace atmogl
 
         instance->window.setSize(width, height);
         instance->camera.setAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+
+        glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+        instance->sceneFramebuffer.resize(width, height);
+
         glViewport(0, 0, width, height);
     }
 
@@ -173,8 +223,12 @@ namespace atmogl
         if (instance)
         {
             instance->objects.clear();
+            instance->screenQuad.reset();
             instance->mesh.reset();
+            instance->screenShader.reset();
+            instance->computeShader.reset();
             instance->shader.reset();
+            instance->sceneFramebuffer.release();
             instance->window.notifyClosed();
         }
     }

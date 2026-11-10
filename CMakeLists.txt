@@ -21,8 +21,9 @@ add_executable(AtmoGL
     src/core/Window.cpp
     src/graphics/Mesh.cpp
     src/graphics/MeshFactory.cpp
-    src/graphics/Renderer.cpp
+    src/graphics/Framebuffer.cpp
     src/graphics/Shader.cpp
+    src/graphics/Texture2D.cpp
     src/scene/Camera.cpp
     src/scene/RenderObject.cpp
 )

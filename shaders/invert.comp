@@ -1,0 +1,21 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(rgba8, binding = 0) uniform image2D uScene;
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= imageSize(uScene).x || pixel.y >= imageSize(uScene).y)
+    {
+        return;
+    }
+
+    vec4 color = imageLoad(uScene, pixel);
+    if (pixel.x <= imageSize(uScene).x / 2)
+    {
+        color.rgb = vec3(1.0) - color.rgb;
+    }
+
+    imageStore(uScene, pixel, color);
+}
