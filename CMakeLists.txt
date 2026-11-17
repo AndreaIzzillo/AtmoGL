@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(GLUT REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 find_package(glm CONFIG QUIET)
 if(NOT TARGET glm::glm)
     find_path(GLM_INCLUDE_DIR glm/glm.hpp REQUIRED)
@@ -26,9 +27,11 @@ add_executable(AtmoGL
     src/graphics/Texture2D.cpp
     src/scene/Camera.cpp
     src/scene/RenderObject.cpp
+    src/atmosphere/Atmosphere.cpp
+    src/ui/GUI.cpp
 )
 target_include_directories(AtmoGL PRIVATE src)
-target_link_libraries(AtmoGL PRIVATE OpenGL::GL GLEW::GLEW GLUT::GLUT glm::glm)
+target_link_libraries(AtmoGL PRIVATE OpenGL::GL GLEW::GLEW GLUT::GLUT glm::glm imgui::imgui)
 
 if(MSVC)
     target_compile_options(AtmoGL PRIVATE /W4 /permissive- /utf-8)

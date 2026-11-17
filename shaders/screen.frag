@@ -5,6 +5,7 @@ in vec2 vUv;
 layout(binding = 0) uniform sampler2D uScene;
 
 uniform float uExposure;
+uniform bool uShowTransmittanceLut;
 
 out vec4 fragColor;
 
@@ -19,10 +20,13 @@ vec3 linearToSrgb(vec3 color)
 
 void main()
 {
-    vec3 hdrColor = max(texture(uScene, vUv).rgb, vec3(0.0));
+    vec3 color = max(texture(uScene, vUv).rgb, vec3(0.0));
 
-    vec3 exposed = hdrColor * uExposure;
-    vec3 mapped = vec3(1.0) - exp(-exposed);
+    if (!uShowTransmittanceLut)
+    {
+        vec3 exposed = color * uExposure;
+        color = vec3(1.0) - exp(-exposed);
+    }
 
-    fragColor = vec4(linearToSrgb(mapped), 1.0);
+    fragColor = vec4(linearToSrgb(color), 1.0);
 }

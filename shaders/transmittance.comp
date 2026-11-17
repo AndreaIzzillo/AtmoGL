@@ -1,0 +1,169 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(rgba16f, binding = 0) uniform image2D uTransmittanceLut;
+
+uniform float uGroundRadius;
+uniform float uTopRadius;
+
+uniform float uRayleighScaleHeight;
+uniform float uMieScaleHeight;
+uniform float uOzoneCenterHeight;
+uniform float uOzoneHalfWidth;
+
+uniform vec3 uRayleighExtinction;
+uniform vec3 uMieExtinction;
+uniform vec3 uOzoneExtinction;
+
+vec3 evaluateExtinction(float altitude)
+{
+    float atmosphereHeight = uTopRadius - uGroundRadius;
+
+    if (altitude < 0.0 || altitude > atmosphereHeight)
+        return vec3(0.0);
+
+    float rayleighDensity = exp(-altitude / uRayleighScaleHeight);
+    float mieDensity = exp(-altitude / uMieScaleHeight);
+
+    float ozoneDensity = max(
+        0.0,
+        1.0 - abs(altitude - uOzoneCenterHeight) / uOzoneHalfWidth
+    );
+
+    return rayleighDensity * uRayleighExtinction
+         + mieDensity * uMieExtinction
+         + ozoneDensity * uOzoneExtinction;
+}
+
+float distanceToAtmosphereExit(float r, float mu)
+{
+    float rMu = r * mu;
+
+    float discriminant =
+        rMu * rMu
+        + (uTopRadius - r) * (uTopRadius + r);
+
+    return max(
+        0.0,
+        -rMu + sqrt(max(0.0, discriminant))
+    );
+}
+
+bool rayIntersectsGround(float r, float mu)
+{
+    if (mu >= 0.0)
+        return false;
+
+    float rMu = r * mu;
+
+    float discriminant =
+        rMu * rMu
+        - (r - uGroundRadius) * (r + uGroundRadius);
+
+    return discriminant >= 0.0;
+}
+
+// uGroundRadius <= r <= uTopRadius
+// -1 <= mu <= 1
+vec3 computeTransmittanceToTop(float r, float mu)
+{
+    const int sampleCount = 64;
+
+    float distanceToTop = distanceToAtmosphereExit(r, mu);
+    if (distanceToTop <= 0.0)
+        return vec3(1.0);
+
+    float stepLength = distanceToTop / float(sampleCount);
+
+    vec3 origin = vec3(0.0, r, 0.0);
+    vec3 direction = vec3(
+        sqrt(max(0.0, 1.0 - mu * mu)),
+        mu,
+        0.0
+    );
+
+    vec3 opticalDepth = vec3(0.0);
+
+    for (int i = 0; i < sampleCount; ++i)
+    {
+        float t = (float(i) + 0.5) * stepLength;
+        vec3 position = origin + t * direction;
+        float altitude = length(position) - uGroundRadius;
+
+        opticalDepth += evaluateExtinction(altitude) * stepLength;
+    }
+
+    return exp(-opticalDepth);
+}
+
+vec2 unitToTextureUv(vec2 coordinates, ivec2 lutSize)
+{
+    vec2 size = vec2(lutSize);
+    return (vec2(0.5) + coordinates * (size - vec2(1.0))) / size;
+}
+
+vec2 textureUvToUnit(vec2 uv, ivec2 lutSize)
+{
+    vec2 size = vec2(lutSize);
+    return (uv - vec2(0.5) / size) / (vec2(1.0) - vec2(1.0) / size);
+}
+
+vec2 transmittanceUvToRMu(vec2 uv, ivec2 lutSize)
+{
+    vec2 coordinates = clamp(textureUvToUnit(uv, lutSize), 0.0, 1.0);
+
+    float H = sqrt(
+        (uTopRadius - uGroundRadius) * (uTopRadius + uGroundRadius)
+    );
+    float rho = H * coordinates.y;
+    float r = sqrt(rho * rho + uGroundRadius * uGroundRadius);
+    r = clamp(r, uGroundRadius, uTopRadius);
+
+    float dMin = uTopRadius - r;
+    float dMax = rho + H;
+    float d = mix(dMin, dMax, coordinates.x);
+
+    float mu = 1.0;
+    if (d > 0.0)
+    {
+        mu = ((uTopRadius - r) * (uTopRadius + r) - d * d)
+             / (2.0 * r * d);
+    }
+
+    return vec2(r, clamp(mu, -1.0, 1.0));
+}
+
+vec2 transmittanceRMuToUv(float r, float mu, ivec2 lutSize)
+{
+    float H = sqrt(
+        (uTopRadius - uGroundRadius) * (uTopRadius + uGroundRadius)
+    );
+    float rho = sqrt(max(
+        0.0, (r - uGroundRadius) * (r + uGroundRadius)
+    ));
+
+    float dMin = uTopRadius - r;
+    float dMax = rho + H;
+    float d = distanceToAtmosphereExit(r, mu);
+
+    vec2 coordinates = vec2(
+        (d - dMin) / (dMax - dMin),
+        rho / H
+    );
+
+    return unitToTextureUv(clamp(coordinates, 0.0, 1.0), lutSize);
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 lutSize = imageSize(uTransmittanceLut);
+    if (any(greaterThanEqual(pixel, lutSize)))
+        return;
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(lutSize);
+    vec2 rMu = transmittanceUvToRMu(uv, lutSize);
+    vec3 transmittance = computeTransmittanceToTop(rMu.x, rMu.y);
+
+    imageStore(uTransmittanceLut, pixel, vec4(transmittance, 1.0));
+}

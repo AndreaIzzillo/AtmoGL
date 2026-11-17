@@ -3,8 +3,12 @@
 #include <GL/freeglut.h>
 #include <algorithm>
 #include <glm/gtc/color_space.hpp>
+#include <imgui.h>
+#include <imgui_impl_glut.h>
 
 #include "graphics/MeshFactory.hpp"
+
+#define ESC 27
 
 namespace atmogl
 {
@@ -16,6 +20,9 @@ namespace atmogl
     {
         sceneFramebuffer.init(window.getWidth(), window.getHeight());
         loadScene();
+        gui = std::make_unique<GUI>();
+        atmosphere = std::make_unique<Atmosphere>();
+        atmosphere->computeTransmittance(atmosphereParameters);
 
         instance = this;
         previousTime = std::chrono::steady_clock::now();
@@ -24,8 +31,12 @@ namespace atmogl
         glutIdleFunc(idleCallback);
         glutKeyboardFunc(keyboardDownCallback);
         glutKeyboardUpFunc(keyboardUpCallback);
+        glutSpecialFunc(specialDownCallback);
+        glutSpecialUpFunc(specialUpCallback);
         glutMouseFunc(mouseButtonCallback);
         glutMotionFunc(mouseMotionCallback);
+        glutPassiveMotionFunc(mouseMotionCallback);
+        glutMouseWheelFunc(mouseWheelCallback);
         glutReshapeFunc(reshapeCallback);
         glutCloseFunc(closeCallback);
     }
@@ -41,8 +52,8 @@ namespace atmogl
         computeShader = std::make_unique<Shader>("shaders/invert.comp");
         screenShader = std::make_unique<Shader>("shaders/screen.vert", "shaders/screen.frag");
 
-        const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.5f, 0.2f, 0.2f));
-        const auto highColor = glm::convertSRGBToLinear(glm::vec3(0.8f, 0.3f, 0.0f));
+        const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.5f, 0.2f, 0.2f) * 0.8f);
+        const auto highColor = glm::convertSRGBToLinear(glm::vec3(0.8f, 0.3f, 0.0f) * 0.8f);
         terrain = MeshFactory::createTerrain(lowColor, highColor);
 
         screenQuad = MeshFactory::createQuad();
@@ -57,8 +68,15 @@ namespace atmogl
 
     void Application::update(float dt)
     {
-        if (keys[27])
+        if (gui && gui->wantsKeyboard())
+            return;
+
+        if (keys[ESC])
+        {
             glutLeaveMainLoop();
+            return;
+        }
+
         if (keys['w'])
             camera.moveForward(dt);
         if (keys['s'])
@@ -87,11 +105,34 @@ namespace atmogl
 
     void Application::render()
     {
+        gui->beginFrame();
+        drawGui();
+
         renderScene();
         processScene();
         presentScene();
 
+        gui->render();
         window.swapBuffers();
+    }
+
+    void Application::drawGui()
+    {
+        ImGui::Begin("AtmoGL");
+
+        if (ImGui::CollapsingHeader("Transmittance LUT"))
+        {
+            ImGui::Checkbox("Show Transmittance LUT", &showTransmittanceLut);
+            if (ImGui::Button("Recompute Transmittance LUT"))
+                atmosphere->computeTransmittance(atmosphereParameters);
+        }
+
+        if (ImGui::CollapsingHeader("HDR Settings"))
+        {
+            ImGui::SliderFloat("Exposition", &exposure, 0.01f, 10.0f, "%.2f");
+        }
+
+        ImGui::End();
     }
 
     void Application::renderScene()
@@ -135,9 +176,13 @@ namespace atmogl
         glDisable(GL_BLEND);
         glDisable(GL_FRAMEBUFFER_SRGB);
 
-        sceneFramebuffer.getColorTexture().bind(0);
+        const Texture2D &tex = showTransmittanceLut ? atmosphere->getTransmittanceLut()
+                                                    : sceneFramebuffer.getColorTexture();
+        tex.bind(0);
+
         screenShader->use();
         screenShader->setFloat("uExposure", exposure);
+        screenShader->setBool("uShowTransmittanceLut", showTransmittanceLut);
         screenQuad->draw();
     }
 
@@ -165,41 +210,81 @@ namespace atmogl
         glutPostRedisplay();
     }
 
-    void Application::keyboardDownCallback(unsigned char key, int, int)
+    void Application::keyboardDownCallback(unsigned char key, int x, int y)
     {
         if (instance)
         {
+            if (instance->gui)
+                ImGui_ImplGLUT_KeyboardFunc(key, x, y);
             instance->keys[key] = true;
         }
     }
 
-    void Application::keyboardUpCallback(unsigned char key, int, int)
+    void Application::keyboardUpCallback(unsigned char key, int x, int y)
     {
         if (instance)
         {
+            if (instance->gui)
+                ImGui_ImplGLUT_KeyboardUpFunc(key, x, y);
             instance->keys[key] = false;
         }
     }
 
+    void Application::specialDownCallback(int key, int x, int y)
+    {
+        if (instance && instance->gui)
+            ImGui_ImplGLUT_SpecialFunc(key, x, y);
+    }
+
+    void Application::specialUpCallback(int key, int x, int y)
+    {
+        if (instance && instance->gui)
+            ImGui_ImplGLUT_SpecialUpFunc(key, x, y);
+    }
+
     void Application::mouseButtonCallback(int button, int state, int x, int y)
     {
-        if (!instance || button != GLUT_LEFT_BUTTON)
+        if (!instance)
+            return;
+
+        if (instance->gui)
+            ImGui_ImplGLUT_MouseFunc(button, state, x, y);
+
+        if (button != GLUT_LEFT_BUTTON)
+            return;
+
+        if (state == GLUT_UP)
         {
+            instance->mouseCaptured = false;
+            glutSetCursor(GLUT_CURSOR_INHERIT);
             return;
         }
 
-        instance->mouseCaptured = state == GLUT_DOWN;
+        if (instance->gui && instance->gui->wantsMouse())
+            return;
+
+        instance->mouseCaptured = true;
         instance->lastMouseX = x;
         instance->lastMouseY = y;
-        glutSetCursor(instance->mouseCaptured ? GLUT_CURSOR_NONE : GLUT_CURSOR_INHERIT);
+        glutSetCursor(GLUT_CURSOR_NONE);
+    }
+
+    void Application::mouseWheelCallback(int button, int direction, int x, int y)
+    {
+        if (instance && instance->gui)
+            ImGui_ImplGLUT_MouseWheelFunc(button, direction, x, y);
     }
 
     void Application::mouseMotionCallback(int x, int y)
     {
-        if (!instance || !instance->mouseCaptured)
-        {
+        if (!instance)
             return;
-        }
+
+        if (instance->gui)
+            ImGui_ImplGLUT_MotionFunc(x, y);
+
+        if (!instance->mouseCaptured || (instance->gui && instance->gui->wantsMouse()))
+            return;
 
         instance->camera.rotateByMouse(static_cast<float>(x - instance->lastMouseX),
                                        static_cast<float>(y - instance->lastMouseY));
@@ -209,10 +294,14 @@ namespace atmogl
 
     void Application::reshapeCallback(int width, int height)
     {
-        if (!instance || width <= 0 || height <= 0)
-        {
+        if (!instance)
             return;
-        }
+
+        if (instance->gui)
+            ImGui_ImplGLUT_ReshapeFunc(width, height);
+
+        if (width <= 0 || height <= 0)
+            return;
 
         instance->window.setSize(width, height);
         instance->camera.setAspectRatio(static_cast<float>(width) / static_cast<float>(height));
@@ -227,6 +316,7 @@ namespace atmogl
     {
         if (instance)
         {
+            instance->gui.reset();
             instance->objects.clear();
             instance->screenQuad.reset();
             instance->terrain.reset();
@@ -235,6 +325,7 @@ namespace atmogl
             instance->shader.reset();
             instance->sceneFramebuffer.release();
             instance->window.notifyClosed();
+            instance->atmosphere.reset();
         }
     }
 }

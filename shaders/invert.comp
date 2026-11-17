@@ -7,15 +7,11 @@ void main()
 {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     if (pixel.x >= imageSize(uScene).x || pixel.y >= imageSize(uScene).y)
-    {
         return;
-    }
 
     vec4 color = imageLoad(uScene, pixel);
     if (pixel.x <= imageSize(uScene).x / 2 && false)
-    {
         color.rgb = vec3(1.0) - color.rgb;
-    }
 
     imageStore(uScene, pixel, color);
 }

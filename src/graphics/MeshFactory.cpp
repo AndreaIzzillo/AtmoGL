@@ -107,8 +107,18 @@ namespace atmogl
                 vertices[z * gridSize + x].position = glm::vec3(xPos, height, zPos);
                 vertices[z * gridSize + x].normal = glm::vec3(0.0f);
 
-                float colorStep = glm::smoothstep(maxAmplitude * 0.5f, maxAmplitude * 2.0f, height);
-                vertices[z * gridSize + x].color = glm::mix(lowColor, highColor, colorStep);
+                glm::vec3 color;
+                {
+                    float groundStep =
+                        glm::smoothstep(maxAmplitude * 0.5f, maxAmplitude * 1.25f, height);
+                    float snowStep =
+                        glm::smoothstep(maxAmplitude * 1.25f, maxAmplitude * 1.75f, height);
+
+                    color = glm::mix(lowColor, highColor, groundStep);
+                    color = glm::mix(color, glm::vec3(1.0f), snowStep);
+                }
+
+                vertices[z * gridSize + x].color = color;
             }
         }
 

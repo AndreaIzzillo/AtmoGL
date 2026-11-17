@@ -87,6 +87,15 @@ namespace atmogl
         return programId;
     }
 
+    void Shader::setBool(const std::string &name, bool value) const
+    {
+        const GLint location = glGetUniformLocation(programId, name.c_str());
+        if (location != -1)
+        {
+            glUniform1i(location, static_cast<int>(value));
+        }
+    }
+
     void Shader::setInt(const std::string &name, int value) const
     {
         const GLint location = glGetUniformLocation(programId, name.c_str());
