@@ -49,7 +49,7 @@ namespace atmogl
     void Application::loadScene()
     {
         shader = std::make_unique<Shader>("shaders/mesh.vert", "shaders/mesh.frag");
-        computeShader = std::make_unique<Shader>("shaders/invert.comp");
+        finalShader = std::make_unique<Shader>("shaders/final.comp");
         screenShader = std::make_unique<Shader>("shaders/screen.vert", "shaders/screen.frag");
 
         const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.5f, 0.2f, 0.2f) * 0.8f);
@@ -109,7 +109,7 @@ namespace atmogl
         drawGui();
 
         renderScene();
-        processScene();
+        // processScene();
         presentScene();
 
         gui->render();
@@ -161,7 +161,7 @@ namespace atmogl
         const Texture2D &texture = sceneFramebuffer.getColorTexture();
         texture.bindImage(0, GL_READ_WRITE);
 
-        computeShader->use();
+        finalShader->use();
         glDispatchCompute((texture.getWidth() + 7) / 8, (texture.getHeight() + 7) / 8, 1);
         glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
     }
@@ -321,7 +321,7 @@ namespace atmogl
             instance->screenQuad.reset();
             instance->terrain.reset();
             instance->screenShader.reset();
-            instance->computeShader.reset();
+            instance->finalShader.reset();
             instance->shader.reset();
             instance->sceneFramebuffer.release();
             instance->window.notifyClosed();
