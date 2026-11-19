@@ -8,12 +8,15 @@ uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
 
+out vec3 vWorldPosition;
 out vec3 vWorldNormal;
 out vec3 vColor;
 
 void main()
 {
+    vec4 worldPosition = uModel * vec4(aPosition, 1.0);
+    vWorldPosition = worldPosition.xyz;
     vWorldNormal = transpose(inverse(mat3(uModel))) * aNormal;
     vColor = aColor;
-    gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
+    gl_Position = uProjection * uView * worldPosition;
 }

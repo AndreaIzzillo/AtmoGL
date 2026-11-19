@@ -29,6 +29,7 @@ namespace atmogl
 
         float sunElevation = 45.0f;
         float sunAzimuth = 0.0f;
+        float sunAngularRadius = glm::radians(0.53f);
 
         glm::vec3 sunIlluminance = glm::vec3(1.0f);
 

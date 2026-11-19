@@ -5,10 +5,14 @@
 in vec2 vUv;
 
 layout(binding = 0) uniform sampler2D uSkyViewLut;
+layout(binding = 1) uniform sampler2D uTransmittanceLut;
 
 uniform mat4 uInverseProjection;
 uniform mat4 uInverseView;
 uniform vec3 uCameraPosition;
+uniform vec3 uSunDirection;
+uniform vec3 uSunIlluminance;
+uniform float uSunAngularRadius;
 
 out vec4 fragColor;
 
@@ -31,5 +35,25 @@ void main()
         textureSize(uSkyViewLut, 0)
     );
 
-    fragColor = vec4(texture(uSkyViewLut, uv).rgb, 1.0);
+    vec3 radiance = texture(uSkyViewLut, uv).rgb;
+
+    float r = length(uCameraPosition);
+    float muView = dot(uCameraPosition / r, worldDirection);
+    bool inSunDisk = dot(worldDirection, uSunDirection) >= cos(uSunAngularRadius);
+
+    if (inSunDisk && !rayIntersectsGround(r, muView))
+    {
+        vec2 transmittanceUv = transmittanceRMuToUv(
+            r,
+            muView,
+            textureSize(uTransmittanceLut, 0)
+        );
+
+        vec3 transmittance =
+            textureLod(uTransmittanceLut, transmittanceUv, 0.0).rgb;
+
+        radiance += transmittance * uSunIlluminance * 20.0;
+    }
+
+    fragColor = vec4(radiance, 1.0);
 }

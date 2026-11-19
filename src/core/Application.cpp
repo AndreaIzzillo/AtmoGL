@@ -15,7 +15,7 @@ namespace atmogl
     Application *Application::instance = nullptr;
 
     Application::Application(int &argc, char **argv)
-        : window(argc, argv, 1280, 720, "AtmoGL")
+        : window(argc, argv, 1920, 1080, "AtmoGL")
         , camera(static_cast<float>(window.getWidth()) / static_cast<float>(window.getHeight()))
     {
         sceneFramebuffer.init(window.getWidth(), window.getHeight());
@@ -55,8 +55,8 @@ namespace atmogl
         screenSkyShader =
             std::make_unique<Shader>("shaders/screen.vert", "shaders/screen_sky.frag");
 
-        const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.5f, 0.2f, 0.2f) * 0.8f);
-        const auto highColor = glm::convertSRGBToLinear(glm::vec3(0.8f, 0.3f, 0.0f) * 0.8f);
+        const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.24f, 0.32f, 0.16f));
+        const auto highColor = glm::convertSRGBToLinear(glm::vec3(0.42f, 0.40f, 0.37f));
         terrain = MeshFactory::createTerrain(lowColor, highColor);
 
         screenQuad = MeshFactory::createQuad();
@@ -147,6 +147,8 @@ namespace atmogl
             ImGui::SliderFloat("Sun Azimuth", &atmosphereParameters.sunAzimuth, 0.0f, 360.0f,
                                "%.1f");
             ImGui::ColorEdit3("Sun Illuminance", &atmosphereParameters.sunIlluminance[0]);
+            ImGui::SliderFloat("Sun Angular Radius", &atmosphereParameters.sunAngularRadius, 0.0f, 1.0f,
+                               "%.3f");
         }
 
         if (ImGui::CollapsingHeader("HDR Settings"))
@@ -187,8 +189,14 @@ namespace atmogl
             screenSkyShader->setMat4("uInverseView", glm::inverse(camera.getViewMatrix()));
             screenSkyShader->setVec3("uCameraPosition", cameraPosition);
             screenSkyShader->setFloat("uGroundRadius", atmosphereParameters.groundRadius);
+            screenSkyShader->setVec3("uSunDirection", atmosphereParameters.sunDirection());
+            screenSkyShader->setVec3("uSunIlluminance", atmosphereParameters.sunIlluminance);
+            screenSkyShader->setFloat("uSunAngularRadius", atmosphereParameters.sunAngularRadius);
+            screenSkyShader->setFloat("uTopRadius", atmosphereParameters.AtmosphereRadius);
 
             atmosphere->getSkyViewLut().bind(0);
+            atmosphere->getTransmittanceLut().bind(1);
+
             screenQuad->draw();
 
             glDepthMask(GL_TRUE);
@@ -201,6 +209,10 @@ namespace atmogl
             shader->use();
             shader->setVec3("uSunDirection", atmosphereParameters.sunDirection());
             shader->setVec3("uSunIlluminance", atmosphereParameters.sunIlluminance);
+            shader->setFloat("uGroundRadius", atmosphereParameters.groundRadius);
+            shader->setFloat("uTopRadius", atmosphereParameters.AtmosphereRadius);
+
+            atmosphere->getTransmittanceLut().bind(1);
 
             for (const RenderObject &object : objects)
             {

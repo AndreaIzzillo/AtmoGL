@@ -69,10 +69,12 @@ namespace atmogl
                                                      const glm::vec3 &highColor)
     {
         constexpr float yRef = 0.0f;
-        constexpr int gridSize = 2048;
-        constexpr float terrainSize = 5000.0f;
+        constexpr int gridSize = 2 << 10;
+        constexpr float terrainSize = 20'000.0f;
         constexpr float spacing = terrainSize / static_cast<float>(gridSize - 1);
-        constexpr float maxAmplitude = 100.0f;
+        constexpr float maxAmplitude = 1000.0f;
+        constexpr float noiseScale = 4000.0f;
+        constexpr int octaves = 6;
 
         // Generate vertices
         std::vector<Vertex> vertices(gridSize * gridSize);
@@ -86,21 +88,22 @@ namespace atmogl
                 float height = yRef;
                 // Noise
                 {
-                    constexpr float noiseScale = 300.0f;
-                    constexpr int octaves = 6;
-
                     float amplitude = maxAmplitude;
                     float frequency = 1.0f / noiseScale;
+                    float weight = 1.0f;
 
                     for (int i = 0; i < octaves; ++i)
                     {
                         const float n = glm::perlin(glm::vec2(xPos, zPos) * frequency);
 
                         float ridge = 1.0f - glm::abs(n);
-                        height += amplitude * ridge * ridge;
+                        ridge = ridge * ridge * weight;
+
+                        height += amplitude * ridge;
 
                         frequency *= 2.0;
-                        amplitude *= 0.5;
+                        amplitude *= 0.4;
+                        weight = glm::clamp(ridge * 2.0f, 0.0f, 1.0f);
                     }
                 }
 
@@ -109,13 +112,8 @@ namespace atmogl
 
                 glm::vec3 color;
                 {
-                    float groundStep =
-                        glm::smoothstep(maxAmplitude * 0.5f, maxAmplitude * 1.25f, height);
-                    float snowStep =
-                        glm::smoothstep(maxAmplitude * 1.25f, maxAmplitude * 1.75f, height);
-
-                    color = glm::mix(lowColor, highColor, groundStep);
-                    color = glm::mix(color, glm::vec3(1.0f), snowStep);
+                    float step = glm::smoothstep(maxAmplitude * 0.5f, maxAmplitude * 1.25f, height);
+                    color = glm::mix(lowColor, highColor, step);
                 }
 
                 vertices[z * gridSize + x].color = color;

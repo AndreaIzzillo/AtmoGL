@@ -34,7 +34,7 @@ namespace atmogl
         Framebuffer sceneFramebuffer;
         Camera camera;
 
-        float exposure = 1.0f;
+        float exposure = 1.75f;
         AtmosphereParameters atmosphereParameters;
 
         std::unique_ptr<GUI> gui;
