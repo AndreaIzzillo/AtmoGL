@@ -35,7 +35,7 @@ namespace atmogl
     private:
         void rotate(float yawDelta, float pitchDelta);
 
-        glm::vec3 position = { 0.0f, 500.0f, 0.0f };
+        glm::vec3 position = { 0.0f, 60.0f, 0.0f };
         glm::vec3 front = { 0.0f, 0.0f, -1.0f };
         glm::vec3 worldUp = { 0.0f, 1.0f, 0.0f };
         glm::vec3 up = { 0.0f, 1.0f, 0.0f };
@@ -48,6 +48,6 @@ namespace atmogl
         float fov = 60.0f;
         float aspectRatio = 1.0f;
         float nearPlane = 1.0f;
-        float farPlane = 5000.0f;
+        float farPlane = 50000.0f;
     };
 }

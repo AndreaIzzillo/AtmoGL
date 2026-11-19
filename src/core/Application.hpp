@@ -35,13 +35,13 @@ namespace atmogl
         Camera camera;
 
         float exposure = 1.0f;
-        bool showTransmittanceLut = false;
         AtmosphereParameters atmosphereParameters;
 
         std::unique_ptr<GUI> gui;
         std::unique_ptr<Shader> shader;
         std::unique_ptr<Shader> finalShader;
-        std::unique_ptr<Shader> screenShader;
+        std::unique_ptr<Shader> screenMeshShader;
+        std::unique_ptr<Shader> screenSkyShader;
         std::unique_ptr<Mesh> terrain;
         std::unique_ptr<Mesh> screenQuad;
         std::vector<RenderObject> objects;
@@ -72,5 +72,14 @@ namespace atmogl
         static void mouseMotionCallback(int x, int y);
         static void reshapeCallback(int width, int height);
         static void closeCallback();
+
+        enum class DisplayMode
+        {
+            Scene,
+            TransmittanceLut,
+            SkyViewLut
+        };
+
+        DisplayMode displayMode = DisplayMode::Scene;
     };
 }

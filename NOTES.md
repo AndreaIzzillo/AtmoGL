@@ -5,8 +5,20 @@ Conventions :
 - Repère planétaire : centre à l’origine ; `P_planète = P_monde + (0, R_sol, 0)`.
 - Rayon `r = length(P_planète)`, altitude `h = r - R_sol`, verticale locale `up = P_planète / r`.
 - Directions normalisées, du point vers la destination ; `sunDirection` pointe vers le Soleil.
+- Rayon de vue : `P(t) = C + t * D`, avec `D` dirigé de la caméra vers la scène ; dans le papier, `D = -v`.
+- `computeSkyView` / `uCameraPosition` : position caméra déjà convertie dans le repère planétaire ; première version limitée à `R_sol <= length(C) <= R_atmo`.
+- Soleil : angles en degrés ; élévation de -90° à 90° (0° = horizon, 90° = zénith), azimut de 0° à 360° (0° = +X, 90° = +Z).
+- Phase de Mie : `-1 < mieAsymmetry < 1`.
 - Transmittance LUT : `T_top(r, mu)`, avec `mu = dot(up, direction)`, jusqu’au sommet sans traverser le sol.
 - RGB = transmissions sans unité dans [0, 1] ; A = 1. Occultation par la planète traitée séparément.
 - LUTs physiques : données linéaires, sans exposition, tone mapping ou conversion sRGB.
 - Transmittance : axe X = longueur du trajet normalisée, axe Y = distance à l’horizon normalisée ; limite tangente au sol incluse.
 - Paramétrisation de Bruneton : extrémités du domaine aux centres des texels de bord, avec conversions UV <-> domaine symétriques (dimensions > 1).
+- `distanceToGround(r, mu)` : appeler uniquement si `rayIntersectsGround(r, mu)` est vrai, avec `r >= R_sol`.
+- Calcul Sky-View : la Transmittance LUT doit être calculée et à jour pour les paramètres du milieu utilisés.
+- Sky-View : RGB = luminance linéaire HDR, A = 1 ; sol planétaire noir, disque solaire séparé.
+- Sky-View, axe X : azimut uniforme sur 360°, périodique, sans correction des centres aux extrémités ; `GL_REPEAT` horizontal, `GL_CLAMP_TO_EDGE` vertical. Adaptation au code de Hillaire, qui exploite la symétrie par rapport au Soleil.
+- Sky-View, axe Y : domaine aux centres des texels de bord ; 0 = zénith, 0.5 = horizon planétaire, 1 = nadir. Distribution quadratique et horizon ajusté à l’altitude, issus du code de Hillaire.
+- Repère Sky-View : verticale locale ; axe tangent obtenu par projection de +X (repli sur +Z près de l’axe X), indépendant de la rotation de la caméra.
+- Consultation Sky-View : `skyViewDirectionToUv(direction, cameraPosition, lutSize)` utilise la même position planétaire, le même rayon de sol et les mêmes dimensions que le calcul de la LUT ; U périodique, correction des centres uniquement sur V.
+- Aux pôles de la Sky-View (zénith/nadir), l’azimut est indéterminé ; la conversion inverse choisit U = 0.

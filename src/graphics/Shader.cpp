@@ -1,7 +1,9 @@
 #include "graphics/Shader.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <glm/gtc/type_ptr.hpp>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
 
@@ -150,17 +152,49 @@ namespace atmogl
         }
     }
 
-    std::string Shader::readFile(const std::string &path)
+    std::string Shader::readFile(const std::string &path, int depth)
     {
+        if (depth > 16)
+        {
+            throw std::runtime_error("Shader include depth exceeded: " + path);
+        }
+
         std::ifstream file(path);
         if (!file.is_open())
         {
             throw std::runtime_error("Could not open file: " + path);
         }
 
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        return buffer.str();
+        std::ostringstream source;
+        std::string line;
+
+        while (std::getline(file, line))
+        {
+            std::istringstream stream(line);
+            std::string directive;
+            stream >> directive;
+
+            if (directive == "#include")
+            {
+                std::string includePath;
+                stream >> std::ws;
+
+                if (stream.peek() != '"' || !(stream >> std::quoted(includePath)))
+                {
+                    throw std::runtime_error("Invalid shader include in: " + path);
+                }
+
+                const auto resolvedPath = std::filesystem::path(path).parent_path() / includePath;
+
+                source << readFile(resolvedPath.string(), depth + 1);
+            }
+            else
+            {
+                source << line << '\n';
+            }
+        }
+
+        return source.str();
     }
 
     GLuint Shader::compileShader(GLenum type, const std::string &source,

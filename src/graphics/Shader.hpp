@@ -30,7 +30,7 @@ namespace atmogl
     private:
         GLuint programId = 0;
 
-        static std::string readFile(const std::string &path);
+        static std::string readFile(const std::string &path, int depth = 0);
         static GLuint compileShader(GLenum type, const std::string &source,
                                     const std::string &debugName);
         void linkProgram();

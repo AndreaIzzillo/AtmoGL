@@ -13,7 +13,6 @@ namespace atmogl
 
     void RenderObject::draw(const Camera &camera) const
     {
-        shader->use();
         shader->setMat4("uModel", transform.getMatrix());
         shader->setMat4("uView", camera.getViewMatrix());
         shader->setMat4("uProjection", camera.getProjectionMatrix());

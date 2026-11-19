@@ -70,9 +70,9 @@ namespace atmogl
     {
         constexpr float yRef = 0.0f;
         constexpr int gridSize = 2048;
-        constexpr float terrainSize = 1000.0f;
+        constexpr float terrainSize = 5000.0f;
         constexpr float spacing = terrainSize / static_cast<float>(gridSize - 1);
-        constexpr float maxAmplitude = 50.0f;
+        constexpr float maxAmplitude = 100.0f;
 
         // Generate vertices
         std::vector<Vertex> vertices(gridSize * gridSize);

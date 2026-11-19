@@ -5,7 +5,9 @@ in vec2 vUv;
 layout(binding = 0) uniform sampler2D uScene;
 
 uniform float uExposure;
+
 uniform bool uShowTransmittanceLut;
+uniform bool uShowSkyViewLut;
 
 out vec4 fragColor;
 
@@ -20,7 +22,14 @@ vec3 linearToSrgb(vec3 color)
 
 void main()
 {
-    vec3 color = max(texture(uScene, vUv).rgb, vec3(0.0));
+    vec2 uv = vUv;
+
+    if (uShowSkyViewLut)
+    {
+        uv.y = 1.0 - uv.y;
+    }
+
+    vec3 color = max(texture(uScene, uv).rgb, vec3(0.0));
 
     if (!uShowTransmittanceLut)
     {

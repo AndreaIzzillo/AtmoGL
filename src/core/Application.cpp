@@ -50,7 +50,10 @@ namespace atmogl
     {
         shader = std::make_unique<Shader>("shaders/mesh.vert", "shaders/mesh.frag");
         finalShader = std::make_unique<Shader>("shaders/final.comp");
-        screenShader = std::make_unique<Shader>("shaders/screen.vert", "shaders/screen.frag");
+        screenMeshShader =
+            std::make_unique<Shader>("shaders/screen.vert", "shaders/screen_mesh.frag");
+        screenSkyShader =
+            std::make_unique<Shader>("shaders/screen.vert", "shaders/screen_sky.frag");
 
         const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.5f, 0.2f, 0.2f) * 0.8f);
         const auto highColor = glm::convertSRGBToLinear(glm::vec3(0.8f, 0.3f, 0.0f) * 0.8f);
@@ -108,11 +111,17 @@ namespace atmogl
         gui->beginFrame();
         drawGui();
 
-        renderScene();
-        // processScene();
-        presentScene();
+        glm::vec3 cameraPosition =
+            camera.getPosition() + glm::vec3(0.0f, atmosphereParameters.groundRadius, 0.0f);
+        atmosphere->computeSkyView(atmosphereParameters, cameraPosition);
 
-        gui->render();
+        // Render passes
+        {
+            renderScene();
+            presentScene();
+            gui->render();
+        }
+
         window.swapBuffers();
     }
 
@@ -120,11 +129,24 @@ namespace atmogl
     {
         ImGui::Begin("AtmoGL");
 
-        if (ImGui::CollapsingHeader("Transmittance LUT"))
+        if (ImGui::CollapsingHeader("Display Mode"))
         {
-            ImGui::Checkbox("Show Transmittance LUT", &showTransmittanceLut);
-            if (ImGui::Button("Recompute Transmittance LUT"))
-                atmosphere->computeTransmittance(atmosphereParameters);
+            if (ImGui::RadioButton("Scene", displayMode == DisplayMode::Scene))
+                displayMode = DisplayMode::Scene;
+            if (ImGui::RadioButton("Transmittance LUT",
+                                   displayMode == DisplayMode::TransmittanceLut))
+                displayMode = DisplayMode::TransmittanceLut;
+            if (ImGui::RadioButton("Sky View LUT", displayMode == DisplayMode::SkyViewLut))
+                displayMode = DisplayMode::SkyViewLut;
+        }
+
+        if (ImGui::CollapsingHeader("Atmosphere Parameters"))
+        {
+            ImGui::SliderFloat("Sun Elevation", &atmosphereParameters.sunElevation, -90.0f, 90.0f,
+                               "%.1f");
+            ImGui::SliderFloat("Sun Azimuth", &atmosphereParameters.sunAzimuth, 0.0f, 360.0f,
+                               "%.1f");
+            ImGui::ColorEdit3("Sun Illuminance", &atmosphereParameters.sunIlluminance[0]);
         }
 
         if (ImGui::CollapsingHeader("HDR Settings"))
@@ -150,9 +172,40 @@ namespace atmogl
         glClearColor(clearColor.r, clearColor.g, clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        for (const RenderObject &object : objects)
+        // Sky pass
         {
-            object.draw(camera);
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+            glDisable(GL_CULL_FACE);
+
+            const glm::vec3 cameraPosition =
+                camera.getPosition() + glm::vec3(0.0f, atmosphereParameters.groundRadius, 0.0f);
+
+            screenSkyShader->use();
+            screenSkyShader->setMat4("uInverseProjection",
+                                     glm::inverse(camera.getProjectionMatrix()));
+            screenSkyShader->setMat4("uInverseView", glm::inverse(camera.getViewMatrix()));
+            screenSkyShader->setVec3("uCameraPosition", cameraPosition);
+            screenSkyShader->setFloat("uGroundRadius", atmosphereParameters.groundRadius);
+
+            atmosphere->getSkyViewLut().bind(0);
+            screenQuad->draw();
+
+            glDepthMask(GL_TRUE);
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_CULL_FACE);
+        }
+
+        // Mesh pass
+        {
+            shader->use();
+            shader->setVec3("uSunDirection", atmosphereParameters.sunDirection());
+            shader->setVec3("uSunIlluminance", atmosphereParameters.sunIlluminance);
+
+            for (const RenderObject &object : objects)
+            {
+                object.draw(camera);
+            }
         }
     }
 
@@ -176,13 +229,27 @@ namespace atmogl
         glDisable(GL_BLEND);
         glDisable(GL_FRAMEBUFFER_SRGB);
 
-        const Texture2D &tex = showTransmittanceLut ? atmosphere->getTransmittanceLut()
-                                                    : sceneFramebuffer.getColorTexture();
-        tex.bind(0);
+        switch (displayMode)
+        {
+        case DisplayMode::Scene:
+            sceneFramebuffer.getColorTexture().bind(0);
+            break;
+        case DisplayMode::TransmittanceLut:
+            atmosphere->getTransmittanceLut().bind(0);
+            break;
+        case DisplayMode::SkyViewLut:
+            atmosphere->getSkyViewLut().bind(0);
+            break;
+        default:
+            sceneFramebuffer.getColorTexture().bind(0);
+            break;
+        }
 
-        screenShader->use();
-        screenShader->setFloat("uExposure", exposure);
-        screenShader->setBool("uShowTransmittanceLut", showTransmittanceLut);
+        screenMeshShader->use();
+        screenMeshShader->setFloat("uExposure", exposure);
+        screenMeshShader->setBool("uShowTransmittanceLut",
+                                  displayMode == DisplayMode::TransmittanceLut);
+        screenMeshShader->setBool("uShowSkyViewLut", displayMode == DisplayMode::SkyViewLut);
         screenQuad->draw();
     }
 
@@ -320,7 +387,8 @@ namespace atmogl
             instance->objects.clear();
             instance->screenQuad.reset();
             instance->terrain.reset();
-            instance->screenShader.reset();
+            instance->screenMeshShader.reset();
+            instance->screenSkyShader.reset();
             instance->finalShader.reset();
             instance->shader.reset();
             instance->sceneFramebuffer.release();
