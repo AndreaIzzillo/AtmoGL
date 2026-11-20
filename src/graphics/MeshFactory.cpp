@@ -101,8 +101,8 @@ namespace atmogl
 
                         height += amplitude * ridge;
 
-                        frequency *= 2.0;
-                        amplitude *= 0.4;
+                        frequency *= 2.0f;
+                        amplitude *= 0.4f;
                         weight = glm::clamp(ridge * 2.0f, 0.0f, 1.0f);
                     }
                 }
