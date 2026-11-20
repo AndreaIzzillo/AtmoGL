@@ -70,7 +70,7 @@ vec3 computeSkyRadiance(vec3 cameraPosition, vec3 viewDirection)
         // Lscat(c, x, v) = T(c, x) * Ei * σs(x) * p(v,li) * S(x, li)
         vec3 Lscat = transmissionAtMidpoint * source;
 
-        // L(c, v)
+        // L(c, v) = ∫(Lscat(c, x, v))
         radiance += Lscat * stepLength;
 
         opticalDepth += segmentOpticalDepth;

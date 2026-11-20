@@ -30,9 +30,11 @@ vec3 computeTransmittanceToTop(float r, float mu)
         vec3 position = origin + t * direction;
         float altitude = length(position) - uGroundRadius;
 
+        // ∫(σt(x)) 
         opticalDepth += evaluateExtinction(altitude) * stepLength;
     }
 
+    // T(x, x + tatmoli) = exp(-∫(σt(x)))
     return exp(-opticalDepth);
 }
 
