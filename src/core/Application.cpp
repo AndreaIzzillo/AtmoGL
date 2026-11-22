@@ -196,8 +196,8 @@ namespace atmogl
             screenSkyShader->setFloat("uSunAngularRadius", atmosphereParameters.sunAngularRadius);
             screenSkyShader->setFloat("uTopRadius", atmosphereParameters.AtmosphereRadius);
 
-            atmosphere->getSkyViewLut().bind(0);
-            atmosphere->getTransmittanceLut().bind(1);
+            atmosphere->getTransmittanceLut().bind(0);
+            atmosphere->getSkyViewLut().bind(1);
 
             screenQuad->draw();
 
@@ -214,7 +214,7 @@ namespace atmogl
             shader->setFloat("uGroundRadius", atmosphereParameters.groundRadius);
             shader->setFloat("uTopRadius", atmosphereParameters.AtmosphereRadius);
 
-            atmosphere->getTransmittanceLut().bind(1);
+            atmosphere->getTransmittanceLut().bind(0);
 
             for (const RenderObject &object : objects)
             {
@@ -226,7 +226,7 @@ namespace atmogl
     void Application::processScene()
     {
         const Texture2D &texture = sceneFramebuffer.getColorTexture();
-        texture.bindImage(0, GL_READ_WRITE);
+        texture.bindImage(3, GL_READ_WRITE);
 
         finalShader->use();
         glDispatchCompute((texture.getWidth() + 7) / 8, (texture.getHeight() + 7) / 8, 1);
@@ -243,25 +243,12 @@ namespace atmogl
         glDisable(GL_BLEND);
         glDisable(GL_FRAMEBUFFER_SRGB);
 
-        switch (displayMode)
-        {
-        case DisplayMode::Scene:
-        case DisplayMode::Distance:
-            sceneFramebuffer.getColorTexture().bind(0);
-            break;
-        case DisplayMode::TransmittanceLut:
-            atmosphere->getTransmittanceLut().bind(0);
-            break;
-        case DisplayMode::SkyViewLut:
-            atmosphere->getSkyViewLut().bind(0);
-            break;
-        default:
-            sceneFramebuffer.getColorTexture().bind(0);
-            break;
-        }
+        atmosphere->getTransmittanceLut().bind(0);
+        atmosphere->getSkyViewLut().bind(1);
+        sceneFramebuffer.getColorTexture().bind(3);
+        sceneFramebuffer.getDepthTexture().bind(4);
 
         screenMeshShader->use();
-        sceneFramebuffer.getDepthTexture().bind(1);
         screenMeshShader->setBool("uShowDistance", displayMode == DisplayMode::Distance);
         screenMeshShader->setMat4("uInverseProjection", glm::inverse(camera.getProjectionMatrix()));
         screenMeshShader->setFloat("uDistanceMax", 20000.0f);

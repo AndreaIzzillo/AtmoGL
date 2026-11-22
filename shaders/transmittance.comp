@@ -3,7 +3,7 @@
 #include "atmosphere_common.glsl"
 
 layout(local_size_x = 8, local_size_y = 8) in;
-layout(rgba16f, binding = 0) uniform image2D uTransmittanceLut;
+layout(rgba16f, binding = 0) uniform image2D uTransmittanceLutImage;
 
 vec3 computeTransmittanceToTop(float r, float mu)
 {
@@ -41,7 +41,7 @@ vec3 computeTransmittanceToTop(float r, float mu)
 void main()
 {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 lutSize = imageSize(uTransmittanceLut);
+    ivec2 lutSize = imageSize(uTransmittanceLutImage);
     if (any(greaterThanEqual(pixel, lutSize)))
         return;
 
@@ -49,5 +49,5 @@ void main()
     vec2 rMu = transmittanceUvToRMu(uv, lutSize);
     vec3 transmittance = computeTransmittanceToTop(rMu.x, rMu.y);
 
-    imageStore(uTransmittanceLut, pixel, vec4(transmittance, 1.0));
+    imageStore(uTransmittanceLutImage, pixel, vec4(transmittance, 1.0));
 }

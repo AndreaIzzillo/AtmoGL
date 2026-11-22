@@ -2,8 +2,10 @@
 
 in vec2 vUv;
 
-layout(binding = 0) uniform sampler2D uScene;
-layout(binding = 1) uniform sampler2D uDepth;
+layout(binding = 0) uniform sampler2D uTransmittanceLut;
+layout(binding = 1) uniform sampler2D uSkyViewLut;
+layout(binding = 3) uniform sampler2D uScene;
+layout(binding = 4) uniform sampler2D uDepth;
 
 uniform float uExposure;
 
@@ -47,14 +49,21 @@ void main()
         return;
     }
 
-    vec2 uv = vUv;
-
-    if (uShowSkyViewLut)
+    vec3 color;
+    if (uShowTransmittanceLut)
     {
-        uv.y = 1.0 - uv.y;
+        color = texture(uTransmittanceLut, vUv).rgb;
+    }
+    else if (uShowSkyViewLut)
+    {
+        color = texture(uSkyViewLut, vec2(vUv.x, 1.0 - vUv.y)).rgb;
+    }
+    else
+    {
+        color = texture(uScene, vUv).rgb;
     }
 
-    vec3 color = max(texture(uScene, uv).rgb, vec3(0.0));
+    color = max(color, vec3(0.0));
 
     if (!uShowTransmittanceLut)
     {

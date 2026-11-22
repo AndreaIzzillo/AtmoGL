@@ -8,7 +8,7 @@ namespace atmogl
         , skyViewShader("shaders/sky_view.comp")
         , skyViewLut(200, 100)
     {
-        skyViewLut.bind(0);
+        skyViewLut.bind(1);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
@@ -38,7 +38,7 @@ namespace atmogl
         skyViewShader.setFloat("uMieAsymmetry", parameters.mieAsymmetry);
 
         transmittanceLut.bind(0);
-        skyViewLut.bindImage(0, GL_WRITE_ONLY);
+        skyViewLut.bindImage(1, GL_WRITE_ONLY);
 
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         glDispatchCompute((skyViewLut.getWidth() + 7) / 8, (skyViewLut.getHeight() + 7) / 8, 1);

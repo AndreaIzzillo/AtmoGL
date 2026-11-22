@@ -4,14 +4,11 @@
 
 in vec2 vUv;
 
-layout(binding = 0) uniform sampler2D uSkyViewLut;
-layout(binding = 1) uniform sampler2D uTransmittanceLut;
+layout(binding = 1) uniform sampler2D uSkyViewLut;
 
 uniform mat4 uInverseProjection;
 uniform mat4 uInverseView;
 uniform vec3 uCameraPosition;
-uniform vec3 uSunDirection;
-uniform vec3 uSunIlluminance;
 uniform float uSunAngularRadius;
 
 out vec4 fragColor;

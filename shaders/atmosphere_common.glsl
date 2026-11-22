@@ -3,6 +3,8 @@
 
 const float PI = 3.14159265359;
 
+layout(binding = 0) uniform sampler2D uTransmittanceLut;
+
 uniform float uGroundRadius;
 uniform float uTopRadius;
 
@@ -18,11 +20,21 @@ uniform vec3 uRayleighExtinction;
 uniform vec3 uMieExtinction;
 uniform vec3 uOzoneExtinction;
 
+uniform vec3 uSunDirection;
+uniform vec3 uSunIlluminance;
+uniform float uMieAsymmetry;
+
 struct MediumSample
 {
     vec3 rayleighScattering;
     vec3 mieScattering;
     vec3 extinction;
+};
+
+struct AtmosphereResult
+{
+    vec3 radiance;
+    vec3 transmittance;
 };
 
 MediumSample evaluateMedium(float altitude)
@@ -267,6 +279,87 @@ vec2 skyViewDirectionToUv(vec3 direction, vec3 cameraPosition, ivec2 lutSize)
     float v = unitToTextureUv(vec2(0.0, y), lutSize).y;
 
     return vec2(u, v);
+}
+
+AtmosphereResult integrateAtmosphere(
+    vec3 cameraPosition,
+    vec3 viewDirection,
+    float maxDistance
+)
+{
+    AtmosphereResult result;
+    result.radiance = vec3(0.0);
+    result.transmittance = vec3(1.0);
+
+    float r = length(cameraPosition);
+    vec3 up = cameraPosition / r;
+    float mu = clamp(dot(up, viewDirection), -1.0, 1.0);
+    float distanceToBoundary = distanceToAtmosphereExit(r, mu);
+
+    if (rayIntersectsGround(r, mu))
+    {
+        distanceToBoundary = min(distanceToBoundary, distanceToGround(r, mu));
+    }
+
+    distanceToBoundary = min(distanceToBoundary, maxDistance);
+
+    if (distanceToBoundary <= 0.0)
+        return result;
+
+    float cosTheta = dot(viewDirection, uSunDirection);
+    float phaseRayleigh = rayleighPhase(cosTheta);
+    float phaseMie = miePhase(cosTheta, uMieAsymmetry);
+
+    vec3 radiance = vec3(0.0);
+    vec3 opticalDepth = vec3(0.0);
+
+    const int sampleCount = 30;
+    float stepLength = distanceToBoundary / float(sampleCount);
+    ivec2 lutSize = textureSize(uTransmittanceLut, 0);
+
+    for (int i = 0; i < sampleCount; ++i)
+    {
+        float t = (float(i) + 0.5) * stepLength;
+        vec3 position = cameraPosition + t * viewDirection;
+
+        float sampleRadius = length(position);
+        float altitude = sampleRadius - uGroundRadius;
+        MediumSample medium = evaluateMedium(altitude);
+
+        vec3 sampleUp = position / sampleRadius;
+        float muSun = clamp(dot(sampleUp, uSunDirection), -1.0, 1.0);
+
+        vec3 sunTransmittance = vec3(0.0);
+        if (!rayIntersectsGround(sampleRadius, muSun))
+        {
+            // S(x, li) = Vis(li) * T(x, x + tatmoli)
+            vec2 uv = transmittanceRMuToUv(sampleRadius, muSun, lutSize);
+            sunTransmittance = textureLod(uTransmittanceLut, uv, 0.0).rgb;
+        }
+
+        // σs(x) * p(v,li)
+        vec3 scattering = medium.rayleighScattering * phaseRayleigh + medium.mieScattering * phaseMie;
+
+        // Ei * σs(x) * p(v,li) * S(x, li)
+        vec3 source = uSunIlluminance * scattering * sunTransmittance;
+
+        // T(c, x)
+        vec3 segmentOpticalDepth = medium.extinction * stepLength;
+        vec3 transmissionAtMidpoint = exp(-(opticalDepth + 0.5 * segmentOpticalDepth));
+
+        // Lscat(c, x, v) = T(c, x) * Ei * σs(x) * p(v,li) * S(x, li)
+        vec3 Lscat = transmissionAtMidpoint * source;
+
+        // L(c, v) = ∫(Lscat(c, x, v))
+        radiance += Lscat * stepLength;
+
+        opticalDepth += segmentOpticalDepth;
+    }
+
+    result.radiance = radiance;
+    result.transmittance = exp(-opticalDepth);
+
+    return result;
 }
 
 #endif

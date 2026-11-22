@@ -2,11 +2,6 @@
 
 #include "atmosphere_common.glsl"
 
-layout(binding = 1) uniform sampler2D uTransmittanceLut;
-
-uniform vec3 uSunDirection;
-uniform vec3 uSunIlluminance;
-
 in vec3 vWorldPosition;
 in vec3 vWorldNormal;
 in vec3 vColor;
