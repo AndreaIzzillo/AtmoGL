@@ -24,6 +24,11 @@ namespace atmogl
         return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
     }
 
+    float Camera::getFarPlane() const
+    {
+        return farPlane;
+    }
+
     void Camera::setAspectRatio(float newAspectRatio)
     {
         aspectRatio = newAspectRatio;

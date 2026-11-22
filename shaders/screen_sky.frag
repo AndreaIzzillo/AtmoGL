@@ -6,6 +6,7 @@ in vec2 vUv;
 
 layout(binding = 1) uniform sampler2D uSkyViewLut;
 
+uniform bool uEnableSkyView;
 uniform mat4 uInverseProjection;
 uniform mat4 uInverseView;
 uniform vec3 uCameraPosition;
@@ -15,16 +16,18 @@ out vec4 fragColor;
 
 void main()
 {
+    if (!uEnableSkyView)
+    {
+        vec4 color = vec4(0.28, 0.79, 0.90, 1.0);
+        fragColor = color * dot(uSunDirection, vec3(0.0, 1.0, 0.0));
+        return;
+    }
+
     vec2 ndc = vUv * 2.0 - 1.0;
 
-    vec4 cameraPoint =
-        uInverseProjection * vec4(ndc, -1.0, 1.0);
-
-    vec3 cameraDirection =
-        normalize(cameraPoint.xyz / cameraPoint.w);
-
-    vec3 worldDirection =
-        normalize(mat3(uInverseView) * cameraDirection);
+    vec4 cameraPoint = uInverseProjection * vec4(ndc, -1.0, 1.0);
+    vec3 cameraDirection = normalize(cameraPoint.xyz / cameraPoint.w);
+    vec3 worldDirection = normalize(mat3(uInverseView) * cameraDirection);
 
     vec2 uv = skyViewDirectionToUv(
         worldDirection,

@@ -5,6 +5,7 @@
 in vec2 vUv;
 
 layout(binding = 1) uniform sampler2D uSkyViewLut;
+layout(binding = 2) uniform sampler3D uAerialPerspectiveLut;
 layout(binding = 3) uniform sampler2D uScene;
 layout(binding = 4) uniform sampler2D uDepth;
 
@@ -12,11 +13,15 @@ uniform float uExposure;
 
 uniform bool uShowTransmittanceLut;
 uniform bool uShowSkyViewLut;
+uniform bool uShowAerialPerspectiveLut;
+uniform float uAerialPerspectiveDebugDepth;
 uniform bool uShowDistance;
 uniform mat4 uInverseProjection;
 uniform float uDistanceMax;
 
 uniform bool uEnableAerialPerspective;
+uniform bool uUseAerialPerspectiveLut;
+uniform float uAerialPerspectiveMaxDepth;
 uniform mat4 uInverseView;
 uniform vec3 uCameraPosition;
 
@@ -68,6 +73,27 @@ void main()
     {
         color = texture(uSkyViewLut, vec2(vUv.x, 1.0 - vUv.y)).rgb;
     }
+    else if (uShowAerialPerspectiveLut)
+    {
+        ivec3 lutSize = textureSize(uAerialPerspectiveLut, 0);
+        float depthCoordinate = clamp(
+            uAerialPerspectiveDebugDepth / uAerialPerspectiveMaxDepth,
+            0.0,
+            1.0
+        );
+        float w = (0.5 + depthCoordinate * float(lutSize.z - 1)) / float(lutSize.z);
+
+        vec4 aerialPerspective = textureLod(
+            uAerialPerspectiveLut,
+            vec3(vUv, w),
+            0.0
+        );
+
+        fragColor = vec4(vec3(aerialPerspective.a), 1.0);
+        // fragColor = vec4(aerialPerspective.rgb, 1.0);
+
+        return;
+    }
     else
     {
         color = texture(uScene, vUv).rgb;
@@ -79,16 +105,38 @@ void main()
             if (depth < 1.0)
             {
                 vec3 cameraPosition = reconstructCameraPosition(vUv, depth);
-                float distanceToTerrain = length(cameraPosition);
-                vec3 worldDirection = normalize(mat3(uInverseView) * cameraPosition);
+                if (uUseAerialPerspectiveLut)
+                {
+                    ivec3 lutSize = textureSize(uAerialPerspectiveLut, 0);
+                    float depthCoordinate = clamp(
+                        -cameraPosition.z / uAerialPerspectiveMaxDepth,
+                        0.0,
+                        1.0
+                    );
+                    float w = (0.5 + depthCoordinate * float(lutSize.z - 1))
+                              / float(lutSize.z);
 
-                AtmosphereResult result = integrateAtmosphere(
-                    uCameraPosition,
-                    worldDirection,
-                    distanceToTerrain
-                );
+                    vec4 aerialPerspective = textureLod(
+                        uAerialPerspectiveLut,
+                        vec3(vUv, w),
+                        0.0
+                    );
 
-                color = result.transmittance * color + result.radiance;
+                    color = aerialPerspective.a * color + aerialPerspective.rgb;
+                }
+                else
+                {
+                    float distanceToTerrain = length(cameraPosition);
+                    vec3 worldDirection = normalize(mat3(uInverseView) * cameraPosition);
+
+                    AtmosphereResult result = integrateAtmosphere(
+                        uCameraPosition,
+                        worldDirection,
+                        distanceToTerrain
+                    );
+
+                    color = result.transmittance * color + result.radiance;
+                }
             }
         }
     }

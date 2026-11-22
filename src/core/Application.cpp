@@ -115,6 +115,15 @@ namespace atmogl
             camera.getPosition() + glm::vec3(0.0f, atmosphereParameters.groundRadius, 0.0f);
         atmosphere->computeSkyView(atmosphereParameters, cameraPosition);
 
+        if (displayMode == DisplayMode::AerialPerspectiveLut
+            || (aerialPerspectiveEnabled && useAerialPerspectiveLut
+                && displayMode == DisplayMode::Scene))
+        {
+            atmosphere->computeAerialPerspective(
+                atmosphereParameters, cameraPosition, glm::inverse(camera.getProjectionMatrix()),
+                glm::inverse(camera.getViewMatrix()), camera.getFarPlane());
+        }
+
         // Render passes
         {
             renderScene();
@@ -132,19 +141,40 @@ namespace atmogl
         if (ImGui::CollapsingHeader("Display Mode"))
         {
             if (ImGui::RadioButton("Scene", displayMode == DisplayMode::Scene))
+            {
                 displayMode = DisplayMode::Scene;
+            }
             if (ImGui::RadioButton("Transmittance LUT",
                                    displayMode == DisplayMode::TransmittanceLut))
+            {
                 displayMode = DisplayMode::TransmittanceLut;
+            }
             if (ImGui::RadioButton("Sky View LUT", displayMode == DisplayMode::SkyViewLut))
+            {
                 displayMode = DisplayMode::SkyViewLut;
+            }
+            if (ImGui::RadioButton("Aerial Perspective LUT",
+                                   displayMode == DisplayMode::AerialPerspectiveLut))
+            {
+                displayMode = DisplayMode::AerialPerspectiveLut;
+            }
+            if (displayMode == DisplayMode::AerialPerspectiveLut)
+            {
+                ImGui::SliderFloat("Depth (m)", &aerialPerspectiveDebugDepth, 0.0f,
+                                   camera.getFarPlane(), "%.1f");
+            }
             if (ImGui::RadioButton("Distance", displayMode == DisplayMode::Distance))
+            {
                 displayMode = DisplayMode::Distance;
+            }
         }
 
         if (ImGui::CollapsingHeader("Atmosphere Parameters"))
         {
+            ImGui::Checkbox("Sky View", &skyViewEnabled);
             ImGui::Checkbox("Aerial Perspective", &aerialPerspectiveEnabled);
+            if (aerialPerspectiveEnabled)
+                ImGui::Checkbox("Use AP LUT", &useAerialPerspectiveLut);
             ImGui::SliderFloat("Sun Elevation", &atmosphereParameters.sunElevation, -90.0f, 90.0f,
                                "%.1f");
             ImGui::SliderFloat("Sun Azimuth", &atmosphereParameters.sunAzimuth, 0.0f, 360.0f,
@@ -187,6 +217,8 @@ namespace atmogl
                 camera.getPosition() + glm::vec3(0.0f, atmosphereParameters.groundRadius, 0.0f);
 
             screenSkyShader->use();
+            screenSkyShader->setBool("uEnableSkyView",
+                                     skyViewEnabled && displayMode == DisplayMode::Scene);
             screenSkyShader->setMat4("uInverseProjection",
                                      glm::inverse(camera.getProjectionMatrix()));
             screenSkyShader->setMat4("uInverseView", glm::inverse(camera.getViewMatrix()));
@@ -246,6 +278,7 @@ namespace atmogl
 
         atmosphere->getTransmittanceLut().bind(0);
         atmosphere->getSkyViewLut().bind(1);
+        atmosphere->getAerialPerspectiveLut().bind(2);
         sceneFramebuffer.getColorTexture().bind(3);
         sceneFramebuffer.getDepthTexture().bind(4);
 
@@ -253,6 +286,8 @@ namespace atmogl
         atmosphere->setCommonUniforms(*screenMeshShader, atmosphereParameters);
         screenMeshShader->setBool("uEnableAerialPerspective",
                                   aerialPerspectiveEnabled && displayMode == DisplayMode::Scene);
+        screenMeshShader->setBool("uUseAerialPerspectiveLut", useAerialPerspectiveLut);
+        screenMeshShader->setFloat("uAerialPerspectiveMaxDepth", camera.getFarPlane());
         screenMeshShader->setMat4("uInverseView", glm::inverse(camera.getViewMatrix()));
         screenMeshShader->setVec3("uCameraPosition",
                                   camera.getPosition()
@@ -267,6 +302,9 @@ namespace atmogl
         screenMeshShader->setBool("uShowTransmittanceLut",
                                   displayMode == DisplayMode::TransmittanceLut);
         screenMeshShader->setBool("uShowSkyViewLut", displayMode == DisplayMode::SkyViewLut);
+        screenMeshShader->setBool("uShowAerialPerspectiveLut",
+                                  displayMode == DisplayMode::AerialPerspectiveLut);
+        screenMeshShader->setFloat("uAerialPerspectiveDebugDepth", aerialPerspectiveDebugDepth);
         screenQuad->draw();
     }
 

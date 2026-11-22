@@ -7,6 +7,8 @@ namespace atmogl
         , transmittanceLut(256, 64)
         , skyViewShader("shaders/sky_view.comp")
         , skyViewLut(200, 100)
+        , aerialPerspectiveShader("shaders/aerial_perspective.comp")
+        , aerialPerspectiveLut(32, 32, 32)
     {
         skyViewLut.bind(1);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -45,6 +47,35 @@ namespace atmogl
         glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
     }
 
+    void Atmosphere::computeAerialPerspective(const AtmosphereParameters &parameters,
+                                              const glm::vec3 &cameraPosition,
+                                              const glm::mat4 &inverseProjection,
+                                              const glm::mat4 &inverseView, float maxDepth)
+    {
+        aerialPerspectiveShader.use();
+        setCommonUniforms(aerialPerspectiveShader, parameters);
+
+        aerialPerspectiveShader.setVec3("uCameraPosition", cameraPosition);
+        aerialPerspectiveShader.setMat4("uInverseProjection", inverseProjection);
+        aerialPerspectiveShader.setMat4("uInverseView", inverseView);
+        aerialPerspectiveShader.setFloat("uAerialPerspectiveMaxDepth", maxDepth);
+
+        aerialPerspectiveShader.setVec3("uSunDirection", parameters.sunDirection());
+        aerialPerspectiveShader.setVec3("uSunIlluminance", parameters.sunIlluminance);
+        aerialPerspectiveShader.setFloat("uMieAsymmetry", parameters.mieAsymmetry);
+
+        transmittanceLut.bind(0);
+        aerialPerspectiveLut.bindImage(2, GL_WRITE_ONLY);
+
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+        glDispatchCompute((aerialPerspectiveLut.getWidth() + 3) / 4,
+                          (aerialPerspectiveLut.getHeight() + 3) / 4,
+                          (aerialPerspectiveLut.getDepth() + 3) / 4);
+
+        glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+    }
+
     const Texture2D &Atmosphere::getTransmittanceLut() const
     {
         return transmittanceLut;
@@ -53,6 +84,11 @@ namespace atmogl
     const Texture2D &Atmosphere::getSkyViewLut() const
     {
         return skyViewLut;
+    }
+
+    const Texture3D &Atmosphere::getAerialPerspectiveLut() const
+    {
+        return aerialPerspectiveLut;
     }
 
     void Atmosphere::setCommonUniforms(Shader &shader, const AtmosphereParameters &parameters)

@@ -3,6 +3,7 @@
 #include "atmosphere/AtmosphereParameters.hpp"
 #include "graphics/Shader.hpp"
 #include "graphics/Texture2D.hpp"
+#include "graphics/Texture3D.hpp"
 
 namespace atmogl
 {
@@ -18,10 +19,16 @@ namespace atmogl
         void computeTransmittance(const AtmosphereParameters &parameters);
         void computeSkyView(const AtmosphereParameters &parameters,
                             const glm::vec3 &cameraPosition);
+        void computeAerialPerspective(const AtmosphereParameters &parameters,
+                                      const glm::vec3 &cameraPosition,
+                                      const glm::mat4 &inverseProjection,
+                                      const glm::mat4 &inverseView, float maxDepth);
+
         void setCommonUniforms(Shader &shader, const AtmosphereParameters &parameters);
 
         const Texture2D &getTransmittanceLut() const;
         const Texture2D &getSkyViewLut() const;
+        const Texture3D &getAerialPerspectiveLut() const;
 
     private:
         Shader transmittanceShader;
@@ -29,5 +36,8 @@ namespace atmogl
 
         Shader skyViewShader;
         Texture2D skyViewLut;
+
+        Shader aerialPerspectiveShader;
+        Texture3D aerialPerspectiveLut;
     };
 }

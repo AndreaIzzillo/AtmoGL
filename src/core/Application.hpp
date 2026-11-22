@@ -35,7 +35,10 @@ namespace atmogl
         Camera camera;
 
         float exposure = 1.75f;
+        float aerialPerspectiveDebugDepth = 0.0f;
+        bool skyViewEnabled = true;
         bool aerialPerspectiveEnabled = true;
+        bool useAerialPerspectiveLut = true;
         AtmosphereParameters atmosphereParameters;
 
         std::unique_ptr<GUI> gui;
@@ -79,6 +82,7 @@ namespace atmogl
             Scene,
             TransmittanceLut,
             SkyViewLut,
+            AerialPerspectiveLut,
             Distance
         };
 
