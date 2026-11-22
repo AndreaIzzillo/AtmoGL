@@ -69,11 +69,11 @@ namespace atmogl
                                                      const glm::vec3 &highColor)
     {
         constexpr float yRef = 0.0f;
-        constexpr int gridSize = 2 << 10;
-        constexpr float terrainSize = 20'000.0f;
+        constexpr int gridSize = 2048;
+        constexpr float terrainSize = 50'000.0f;
         constexpr float spacing = terrainSize / static_cast<float>(gridSize - 1);
-        constexpr float maxAmplitude = 1000.0f;
-        constexpr float noiseScale = 4000.0f;
+        constexpr float maxAmplitude = 1500.0f;
+        constexpr float noiseScale = 8000.0f;
         constexpr int octaves = 6;
 
         // Generate vertices
@@ -102,7 +102,7 @@ namespace atmogl
                         height += amplitude * ridge;
 
                         frequency *= 2.0f;
-                        amplitude *= 0.4f;
+                        amplitude *= 0.45f;
                         weight = glm::clamp(ridge * 2.0f, 0.0f, 1.0f);
                     }
                 }
