@@ -35,6 +35,7 @@ namespace atmogl
         Camera camera;
 
         float exposure = 1.75f;
+        bool aerialPerspectiveEnabled = true;
         AtmosphereParameters atmosphereParameters;
 
         std::unique_ptr<GUI> gui;

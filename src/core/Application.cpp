@@ -144,6 +144,7 @@ namespace atmogl
 
         if (ImGui::CollapsingHeader("Atmosphere Parameters"))
         {
+            ImGui::Checkbox("Aerial Perspective", &aerialPerspectiveEnabled);
             ImGui::SliderFloat("Sun Elevation", &atmosphereParameters.sunElevation, -90.0f, 90.0f,
                                "%.1f");
             ImGui::SliderFloat("Sun Azimuth", &atmosphereParameters.sunAzimuth, 0.0f, 360.0f,
@@ -249,6 +250,16 @@ namespace atmogl
         sceneFramebuffer.getDepthTexture().bind(4);
 
         screenMeshShader->use();
+        atmosphere->setCommonUniforms(*screenMeshShader, atmosphereParameters);
+        screenMeshShader->setBool("uEnableAerialPerspective",
+                                  aerialPerspectiveEnabled && displayMode == DisplayMode::Scene);
+        screenMeshShader->setMat4("uInverseView", glm::inverse(camera.getViewMatrix()));
+        screenMeshShader->setVec3("uCameraPosition",
+                                  camera.getPosition()
+                                      + glm::vec3(0.0f, atmosphereParameters.groundRadius, 0.0f));
+        screenMeshShader->setVec3("uSunDirection", atmosphereParameters.sunDirection());
+        screenMeshShader->setVec3("uSunIlluminance", atmosphereParameters.sunIlluminance);
+        screenMeshShader->setFloat("uMieAsymmetry", atmosphereParameters.mieAsymmetry);
         screenMeshShader->setBool("uShowDistance", displayMode == DisplayMode::Distance);
         screenMeshShader->setMat4("uInverseProjection", glm::inverse(camera.getProjectionMatrix()));
         screenMeshShader->setFloat("uDistanceMax", 20000.0f);

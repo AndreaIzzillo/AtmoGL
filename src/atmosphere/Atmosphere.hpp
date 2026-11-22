@@ -18,6 +18,7 @@ namespace atmogl
         void computeTransmittance(const AtmosphereParameters &parameters);
         void computeSkyView(const AtmosphereParameters &parameters,
                             const glm::vec3 &cameraPosition);
+        void setCommonUniforms(Shader &shader, const AtmosphereParameters &parameters);
 
         const Texture2D &getTransmittanceLut() const;
         const Texture2D &getSkyViewLut() const;
@@ -28,7 +29,5 @@ namespace atmogl
 
         Shader skyViewShader;
         Texture2D skyViewLut;
-
-        void setCommonUniforms(Shader &shader, const AtmosphereParameters &parameters);
     };
 }

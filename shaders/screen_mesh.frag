@@ -1,8 +1,9 @@
 #version 430 core
 
+#include "atmosphere_common.glsl"
+
 in vec2 vUv;
 
-layout(binding = 0) uniform sampler2D uTransmittanceLut;
 layout(binding = 1) uniform sampler2D uSkyViewLut;
 layout(binding = 3) uniform sampler2D uScene;
 layout(binding = 4) uniform sampler2D uDepth;
@@ -15,6 +16,10 @@ uniform bool uShowDistance;
 uniform mat4 uInverseProjection;
 uniform float uDistanceMax;
 
+uniform bool uEnableAerialPerspective;
+uniform mat4 uInverseView;
+uniform vec3 uCameraPosition;
+
 out vec4 fragColor;
 
 vec3 linearToSrgb(vec3 color)
@@ -24,6 +29,14 @@ vec3 linearToSrgb(vec3 color)
         12.92 * color,
         lessThanEqual(color, vec3(0.0031308))
     );
+}
+
+vec3 reconstructCameraPosition(vec2 uv, float depth)
+{
+    vec3 ndc = vec3(uv, depth) * 2.0 - 1.0;
+    vec4 position = uInverseProjection * vec4(ndc, 1.0);
+
+    return position.xyz / position.w;
 }
 
 void main()
@@ -38,11 +51,8 @@ void main()
             return;
         }
 
-        vec3 ndc = vec3(vUv, depth) * 2.0 - 1.0;
-        vec4 cameraPosition = uInverseProjection * vec4(ndc, 1.0);
-        cameraPosition /= cameraPosition.w;
-
-        float distanceToCamera = length(cameraPosition.xyz);
+        vec3 cameraPosition = reconstructCameraPosition(vUv, depth);
+        float distanceToCamera = length(cameraPosition);
         float gray = clamp(distanceToCamera / uDistanceMax, 0.0, 1.0);
 
         fragColor = vec4(vec3(gray), 1.0);
@@ -61,6 +71,26 @@ void main()
     else
     {
         color = texture(uScene, vUv).rgb;
+
+        if (uEnableAerialPerspective)
+        {
+            float depth = texture(uDepth, vUv).r;
+
+            if (depth < 1.0)
+            {
+                vec3 cameraPosition = reconstructCameraPosition(vUv, depth);
+                float distanceToTerrain = length(cameraPosition);
+                vec3 worldDirection = normalize(mat3(uInverseView) * cameraPosition);
+
+                AtmosphereResult result = integrateAtmosphere(
+                    uCameraPosition,
+                    worldDirection,
+                    distanceToTerrain
+                );
+
+                color = result.transmittance * color + result.radiance;
+            }
+        }
     }
 
     color = max(color, vec3(0.0));
