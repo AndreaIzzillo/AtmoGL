@@ -3,11 +3,15 @@
 in vec2 vUv;
 
 layout(binding = 0) uniform sampler2D uScene;
+layout(binding = 1) uniform sampler2D uDepth;
 
 uniform float uExposure;
 
 uniform bool uShowTransmittanceLut;
 uniform bool uShowSkyViewLut;
+uniform bool uShowDistance;
+uniform mat4 uInverseProjection;
+uniform float uDistanceMax;
 
 out vec4 fragColor;
 
@@ -22,6 +26,27 @@ vec3 linearToSrgb(vec3 color)
 
 void main()
 {
+    if (uShowDistance)
+    {
+        float depth = texture(uDepth, vUv).r;
+
+        if (depth >= 1.0)
+        {
+            fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+        }
+
+        vec3 ndc = vec3(vUv, depth) * 2.0 - 1.0;
+        vec4 cameraPosition = uInverseProjection * vec4(ndc, 1.0);
+        cameraPosition /= cameraPosition.w;
+
+        float distanceToCamera = length(cameraPosition.xyz);
+        float gray = clamp(distanceToCamera / uDistanceMax, 0.0, 1.0);
+
+        fragColor = vec4(vec3(gray), 1.0);
+        return;
+    }
+
     vec2 uv = vUv;
 
     if (uShowSkyViewLut)

@@ -77,7 +77,8 @@ namespace atmogl
         {
             Scene,
             TransmittanceLut,
-            SkyViewLut
+            SkyViewLut,
+            Distance
         };
 
         DisplayMode displayMode = DisplayMode::Scene;

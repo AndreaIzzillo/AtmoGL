@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "graphics/DepthTexture2D.hpp"
 #include "graphics/Texture2D.hpp"
 
 namespace atmogl
@@ -22,10 +23,11 @@ namespace atmogl
         void bind() const;
 
         const Texture2D &getColorTexture() const;
+        const DepthTexture2D &getDepthTexture() const;
 
     private:
         GLuint fbo = 0;
-        GLuint depthRbo = 0;
         std::unique_ptr<Texture2D> colorTexture;
+        std::unique_ptr<DepthTexture2D> depthTexture;
     };
 }

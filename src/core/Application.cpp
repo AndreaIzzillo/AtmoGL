@@ -138,6 +138,8 @@ namespace atmogl
                 displayMode = DisplayMode::TransmittanceLut;
             if (ImGui::RadioButton("Sky View LUT", displayMode == DisplayMode::SkyViewLut))
                 displayMode = DisplayMode::SkyViewLut;
+            if (ImGui::RadioButton("Distance", displayMode == DisplayMode::Distance))
+                displayMode = DisplayMode::Distance;
         }
 
         if (ImGui::CollapsingHeader("Atmosphere Parameters"))
@@ -147,8 +149,8 @@ namespace atmogl
             ImGui::SliderFloat("Sun Azimuth", &atmosphereParameters.sunAzimuth, 0.0f, 360.0f,
                                "%.1f");
             ImGui::ColorEdit3("Sun Illuminance", &atmosphereParameters.sunIlluminance[0]);
-            ImGui::SliderFloat("Sun Angular Radius", &atmosphereParameters.sunAngularRadius, 0.0f, 1.0f,
-                               "%.3f");
+            ImGui::SliderFloat("Sun Angular Radius", &atmosphereParameters.sunAngularRadius, 0.0f,
+                               1.0f, "%.3f");
         }
 
         if (ImGui::CollapsingHeader("HDR Settings"))
@@ -244,6 +246,7 @@ namespace atmogl
         switch (displayMode)
         {
         case DisplayMode::Scene:
+        case DisplayMode::Distance:
             sceneFramebuffer.getColorTexture().bind(0);
             break;
         case DisplayMode::TransmittanceLut:
@@ -258,6 +261,10 @@ namespace atmogl
         }
 
         screenMeshShader->use();
+        sceneFramebuffer.getDepthTexture().bind(1);
+        screenMeshShader->setBool("uShowDistance", displayMode == DisplayMode::Distance);
+        screenMeshShader->setMat4("uInverseProjection", glm::inverse(camera.getProjectionMatrix()));
+        screenMeshShader->setFloat("uDistanceMax", 20000.0f);
         screenMeshShader->setFloat("uExposure", exposure);
         screenMeshShader->setBool("uShowTransmittanceLut",
                                   displayMode == DisplayMode::TransmittanceLut);

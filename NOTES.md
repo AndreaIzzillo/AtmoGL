@@ -22,3 +22,4 @@ Conventions :
 - Repère Sky-View : verticale locale ; axe tangent obtenu par projection de +X (repli sur +Z près de l’axe X), indépendant de la rotation de la caméra.
 - Consultation Sky-View : `skyViewDirectionToUv(direction, cameraPosition, lutSize)` utilise la même position planétaire, le même rayon de sol et les mêmes dimensions que le calcul de la LUT ; U périodique, correction des centres uniquement sur V.
 - Aux pôles de la Sky-View (zénith/nadir), l’azimut est indéterminé ; la conversion inverse choisit U = 0.
+- Debug Distance : profondeur OpenGL [0, 1] convertie en NDC [-1, 1], puis position caméra par projection inverse et division par W ; distance = longueur de cette position en mètres. Gris direct de 0 à 20 km, saturé au-delà, sans exposition, tone mapping ou conversion sRGB ; profondeur 1 = fond noir.
