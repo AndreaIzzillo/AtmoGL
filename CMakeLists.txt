@@ -25,6 +25,7 @@ add_executable(AtmoGL
     src/graphics/Framebuffer.cpp
     src/graphics/Shader.cpp
     src/graphics/Texture2D.cpp
+    src/graphics/Texture3D.cpp
     src/graphics/DepthTexture2D.cpp
     src/scene/Camera.cpp
     src/scene/RenderObject.cpp
