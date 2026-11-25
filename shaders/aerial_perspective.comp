@@ -31,7 +31,8 @@ void main()
     AtmosphereResult result = integrateAtmosphere(
         uCameraPosition,
         worldDirection,
-        distanceAlongRay
+        distanceAlongRay,
+        true
     );
 
     float transmittance = dot(result.transmittance, vec3(1.0 / 3.0));

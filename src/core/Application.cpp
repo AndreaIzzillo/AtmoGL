@@ -3,6 +3,7 @@
 #include <GL/freeglut.h>
 #include <algorithm>
 #include <glm/gtc/color_space.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <imgui.h>
 #include <imgui_impl_glut.h>
 
@@ -19,7 +20,10 @@ namespace atmogl
         , camera(static_cast<float>(window.getWidth()) / static_cast<float>(window.getHeight()))
     {
         sceneFramebuffer.init(window.getWidth(), window.getHeight());
+        sunFramebuffer.init(2 << 12, 2 << 12);
+
         loadScene();
+
         gui = std::make_unique<GUI>();
         atmosphere = std::make_unique<Atmosphere>();
         atmosphere->computeTransmittance(atmosphereParameters);
@@ -54,6 +58,7 @@ namespace atmogl
             std::make_unique<Shader>("shaders/screen.vert", "shaders/screen_mesh.frag");
         screenSkyShader =
             std::make_unique<Shader>("shaders/screen.vert", "shaders/screen_sky.frag");
+        sunViewShader = std::make_unique<Shader>("shaders/mesh.vert", "shaders/sun_view.frag");
 
         const auto lowColor = glm::convertSRGBToLinear(glm::vec3(0.24f, 0.32f, 0.16f));
         const auto highColor = glm::convertSRGBToLinear(glm::vec3(0.42f, 0.40f, 0.37f));
@@ -111,26 +116,38 @@ namespace atmogl
         gui->beginFrame();
         drawGui();
 
-        glm::vec3 cameraPosition =
-            camera.getPosition() + glm::vec3(0.0f, atmosphereParameters.groundRadius, 0.0f);
-        atmosphere->computeSkyView(atmosphereParameters, cameraPosition);
-
-        if (displayMode == DisplayMode::AerialPerspectiveLut
-            || (aerialPerspectiveEnabled && useAerialPerspectiveLut
-                && displayMode == DisplayMode::Scene))
+        if (transmittanceDirty)
         {
-            atmosphere->computeAerialPerspective(
-                atmosphereParameters, cameraPosition, glm::inverse(camera.getProjectionMatrix()),
-                glm::inverse(camera.getViewMatrix()), camera.getFarPlane());
+            atmosphere->computeTransmittance(atmosphereParameters);
+            transmittanceDirty = false;
         }
 
-        // Render passes
+        renderSunView();
+
+        if (displayMode != DisplayMode::SunView)
         {
+            const glm::vec3 cameraPosition =
+                camera.getPosition() + glm::vec3(0.0f, atmosphereParameters.groundRadius, 0.0f);
+            const float normalizedShadowBias = shadowBias / (sunFarPlane - sunNearPlane);
+            sunFramebuffer.getDepthTexture().bind(6);
+            atmosphere->computeSkyView(atmosphereParameters, cameraPosition);
+
+            if (displayMode == DisplayMode::AerialPerspectiveLut
+                || (aerialPerspectiveEnabled && useAerialPerspectiveLut
+                    && displayMode == DisplayMode::Scene))
+            {
+                atmosphere->computeAerialPerspective(atmosphereParameters, cameraPosition,
+                                                     glm::inverse(camera.getProjectionMatrix()),
+                                                     glm::inverse(camera.getViewMatrix()),
+                                                     camera.getFarPlane(), lightViewProjection,
+                                                     normalizedShadowBias);
+            }
+
             renderScene();
-            presentScene();
-            gui->render();
         }
 
+        presentScene();
+        gui->render();
         window.swapBuffers();
     }
 
@@ -167,6 +184,10 @@ namespace atmogl
             {
                 displayMode = DisplayMode::Distance;
             }
+            if (ImGui::RadioButton("Sun View", displayMode == DisplayMode::SunView))
+            {
+                displayMode = DisplayMode::SunView;
+            }
         }
 
         if (ImGui::CollapsingHeader("Atmosphere Parameters"))
@@ -182,6 +203,67 @@ namespace atmogl
             ImGui::ColorEdit3("Sun Illuminance", &atmosphereParameters.sunIlluminance[0]);
             ImGui::SliderFloat("Sun Angular Radius", &atmosphereParameters.sunAngularRadius, 0.0f,
                                1.0f, "%.3f");
+
+            const auto editCoefficient = [](const char *label, glm::vec3 &coefficient) {
+                glm::vec3 value = coefficient * 1e6f;
+                if (ImGui::DragFloat3(label, &value[0], 0.01f, 0.0f, 1000.0f, "%.3f",
+                                      ImGuiSliderFlags_AlwaysClamp))
+                {
+                    coefficient = value * 1e-6f;
+                    return true;
+                }
+                return false;
+            };
+
+            if (ImGui::TreeNode("Rayleigh"))
+            {
+                transmittanceDirty |= editCoefficient("Rayleigh Scattering (1e-6 m^-1)",
+                                                      atmosphereParameters.rayleighScattering);
+                transmittanceDirty |= ImGui::DragFloat(
+                    "Rayleigh Scale Height (m)", &atmosphereParameters.rayleighScaleHeight, 100.0f,
+                    100.0f, 50000.0f, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::TreePop();
+            }
+
+            if (ImGui::TreeNode("Mie"))
+            {
+                transmittanceDirty |= ImGui::DragFloat(
+                    "Mie Density Multiplier", &atmosphereParameters.mieDensityMultiplier, 0.05f,
+                    0.0f, 10.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+                transmittanceDirty |= editCoefficient("Mie Scattering (1e-6 m^-1)",
+                                                      atmosphereParameters.mieScattering);
+                transmittanceDirty |= editCoefficient("Mie Absorption (1e-6 m^-1)",
+                                                      atmosphereParameters.mieAbsorption);
+                transmittanceDirty |=
+                    ImGui::DragFloat("Mie Scale Height (m)", &atmosphereParameters.mieScaleHeight,
+                                     50.0f, 100.0f, 10000.0f, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::SliderFloat("Mie Asymmetry", &atmosphereParameters.mieAsymmetry, -0.99f,
+                                   0.99f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::TreePop();
+            }
+
+            if (ImGui::TreeNode("Ozone"))
+            {
+                const float atmosphereHeight =
+                    atmosphereParameters.AtmosphereRadius - atmosphereParameters.groundRadius;
+                transmittanceDirty |= editCoefficient("Ozone Absorption (1e-6 m^-1)",
+                                                      atmosphereParameters.ozoneAbsorption);
+                transmittanceDirty |= ImGui::DragFloat(
+                    "Ozone Center Height (m)", &atmosphereParameters.ozoneCenterHeight, 100.0f,
+                    0.0f, atmosphereHeight, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+                transmittanceDirty |= ImGui::DragFloat(
+                    "Ozone Half Width (m)", &atmosphereParameters.ozoneHalfWidth, 100.0f, 100.0f,
+                    atmosphereHeight, "%.0f", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::TreePop();
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Shadow Settings"))
+        {
+            ImGui::DragFloat("Shadow Bias (m)", &shadowBias, 0.5f, 0.0f, 100.0f, "%.1f",
+                             ImGuiSliderFlags_AlwaysClamp);
+            ImGui::DragFloat("Shadow Slope Bias", &shadowSlopeBias, 0.05f, 0.0f, 4.0f, "%.2f",
+                             ImGuiSliderFlags_AlwaysClamp);
         }
 
         if (ImGui::CollapsingHeader("HDR Settings"))
@@ -242,18 +324,73 @@ namespace atmogl
         // Mesh pass
         {
             shader->use();
+            shader->setMat4("uLightViewProjection", lightViewProjection);
+            shader->setFloat("uShadowBias", shadowBias / (sunFarPlane - sunNearPlane));
             shader->setVec3("uSunDirection", atmosphereParameters.sunDirection());
             shader->setVec3("uSunIlluminance", atmosphereParameters.sunIlluminance);
             shader->setFloat("uGroundRadius", atmosphereParameters.groundRadius);
             shader->setFloat("uTopRadius", atmosphereParameters.AtmosphereRadius);
 
             atmosphere->getTransmittanceLut().bind(0);
+            sunFramebuffer.getDepthTexture().bind(6);
 
             for (const RenderObject &object : objects)
             {
                 object.draw(camera);
             }
         }
+    }
+
+    void Application::renderSunView()
+    {
+        const glm::vec3 sunDirection = atmosphereParameters.sunDirection();
+        if (sunViewValid && sunDirection == lastSunDirection
+            && shadowSlopeBias == lastShadowSlopeBias)
+        {
+            return;
+        }
+
+        const glm::vec3 target(0.0f, 1500.0f, 0.0f);
+        const glm::vec3 lightPosition = target + sunDirection * 60'000.0f;
+
+        const glm::vec3 lightUp =
+            glm::abs(glm::dot(sunDirection, glm::vec3(0.0f, 1.0f, 0.0f))) > 0.99f
+            ? glm::vec3(0.0f, 0.0f, 1.0f)
+            : glm::vec3(0.0f, 1.0f, 0.0f);
+
+        const glm::mat4 lightView = glm::lookAt(lightPosition, target, lightUp);
+        const glm::mat4 lightProjection =
+            glm::ortho(-36'000.0f, 36'000.0f, -36'000.0f, 36'000.0f, sunNearPlane, sunFarPlane);
+        lightViewProjection = lightProjection * lightView;
+
+        sunFramebuffer.bind();
+
+        const Texture2D &texture = sunFramebuffer.getColorTexture();
+        glViewport(0, 0, texture.getWidth(), texture.getHeight());
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glDisable(GL_BLEND);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        sunViewShader->use();
+        sunViewShader->setVec3("uSunDirection", sunDirection);
+
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(shadowSlopeBias, 0.0f);
+
+        for (const RenderObject &object : objects)
+        {
+            object.draw(*sunViewShader, lightView, lightProjection);
+        }
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+        lastSunDirection = sunDirection;
+        lastShadowSlopeBias = shadowSlopeBias;
+        sunViewValid = true;
     }
 
     void Application::processScene()
@@ -270,7 +407,17 @@ namespace atmogl
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        glViewport(0, 0, window.getWidth(), window.getHeight());
+        if (displayMode == DisplayMode::SunView)
+        {
+            const int size = std::min(window.getWidth(), window.getHeight());
+            glViewport((window.getWidth() - size) / 2, (window.getHeight() - size) / 2, size, size);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+        }
+        else
+        {
+            glViewport(0, 0, window.getWidth(), window.getHeight());
+        }
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
@@ -281,9 +428,13 @@ namespace atmogl
         atmosphere->getAerialPerspectiveLut().bind(2);
         sceneFramebuffer.getColorTexture().bind(3);
         sceneFramebuffer.getDepthTexture().bind(4);
+        sunFramebuffer.getColorTexture().bind(5);
+        sunFramebuffer.getDepthTexture().bind(6);
 
         screenMeshShader->use();
         atmosphere->setCommonUniforms(*screenMeshShader, atmosphereParameters);
+        screenMeshShader->setMat4("uLightViewProjection", lightViewProjection);
+        screenMeshShader->setFloat("uShadowBias", shadowBias / (sunFarPlane - sunNearPlane));
         screenMeshShader->setBool("uEnableAerialPerspective",
                                   aerialPerspectiveEnabled && displayMode == DisplayMode::Scene);
         screenMeshShader->setBool("uUseAerialPerspectiveLut", useAerialPerspectiveLut);
@@ -302,6 +453,7 @@ namespace atmogl
         screenMeshShader->setBool("uShowTransmittanceLut",
                                   displayMode == DisplayMode::TransmittanceLut);
         screenMeshShader->setBool("uShowSkyViewLut", displayMode == DisplayMode::SkyViewLut);
+        screenMeshShader->setBool("uShowSunView", displayMode == DisplayMode::SunView);
         screenMeshShader->setBool("uShowAerialPerspectiveLut",
                                   displayMode == DisplayMode::AerialPerspectiveLut);
         screenMeshShader->setFloat("uAerialPerspectiveDebugDepth", aerialPerspectiveDebugDepth);
@@ -444,9 +596,11 @@ namespace atmogl
             instance->terrain.reset();
             instance->screenMeshShader.reset();
             instance->screenSkyShader.reset();
+            instance->sunViewShader.reset();
             instance->finalShader.reset();
             instance->shader.reset();
             instance->sceneFramebuffer.release();
+            instance->sunFramebuffer.release();
             instance->window.notifyClosed();
             instance->atmosphere.reset();
         }

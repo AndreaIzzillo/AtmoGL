@@ -13,6 +13,8 @@ namespace atmogl
     public:
         RenderObject(const Mesh &mesh, const Shader &shader);
         void draw(const Camera &camera) const;
+        void draw(const Shader &renderShader, const glm::mat4 &view,
+                  const glm::mat4 &projection) const;
 
         Transform transform;
 

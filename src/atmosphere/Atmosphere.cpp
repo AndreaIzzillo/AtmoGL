@@ -8,7 +8,7 @@ namespace atmogl
         , skyViewShader("shaders/sky_view.comp")
         , skyViewLut(200, 100)
         , aerialPerspectiveShader("shaders/aerial_perspective.comp")
-        , aerialPerspectiveLut(32, 32, 32)
+        , aerialPerspectiveLut(256, 256, 32)
     {
         skyViewLut.bind(1);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -50,7 +50,9 @@ namespace atmogl
     void Atmosphere::computeAerialPerspective(const AtmosphereParameters &parameters,
                                               const glm::vec3 &cameraPosition,
                                               const glm::mat4 &inverseProjection,
-                                              const glm::mat4 &inverseView, float maxDepth)
+                                              const glm::mat4 &inverseView, float maxDepth,
+                                              const glm::mat4 &lightViewProjection,
+                                              float shadowBias)
     {
         aerialPerspectiveShader.use();
         setCommonUniforms(aerialPerspectiveShader, parameters);
@@ -63,6 +65,8 @@ namespace atmogl
         aerialPerspectiveShader.setVec3("uSunDirection", parameters.sunDirection());
         aerialPerspectiveShader.setVec3("uSunIlluminance", parameters.sunIlluminance);
         aerialPerspectiveShader.setFloat("uMieAsymmetry", parameters.mieAsymmetry);
+        aerialPerspectiveShader.setMat4("uLightViewProjection", lightViewProjection);
+        aerialPerspectiveShader.setFloat("uShadowBias", shadowBias);
 
         transmittanceLut.bind(0);
         aerialPerspectiveLut.bindImage(2, GL_WRITE_ONLY);
@@ -100,10 +104,13 @@ namespace atmogl
         shader.setFloat("uOzoneCenterHeight", parameters.ozoneCenterHeight);
         shader.setFloat("uOzoneHalfWidth", parameters.ozoneHalfWidth);
         shader.setVec3("uRayleighScattering", parameters.rayleighScattering);
-        shader.setVec3("uMieScattering", parameters.mieScattering);
+        shader.setVec3("uMieScattering",
+                       parameters.mieScattering * parameters.mieDensityMultiplier);
         shader.setVec3("uRayleighExtinction",
                        parameters.rayleighScattering + parameters.rayleighAbsorption);
-        shader.setVec3("uMieExtinction", parameters.mieScattering + parameters.mieAbsorption);
+        shader.setVec3("uMieExtinction",
+                       (parameters.mieScattering + parameters.mieAbsorption)
+                           * parameters.mieDensityMultiplier);
         shader.setVec3("uOzoneExtinction", parameters.ozoneScattering + parameters.ozoneAbsorption);
     }
 }

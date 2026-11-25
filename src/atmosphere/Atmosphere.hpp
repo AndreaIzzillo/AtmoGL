@@ -22,7 +22,8 @@ namespace atmogl
         void computeAerialPerspective(const AtmosphereParameters &parameters,
                                       const glm::vec3 &cameraPosition,
                                       const glm::mat4 &inverseProjection,
-                                      const glm::mat4 &inverseView, float maxDepth);
+                                      const glm::mat4 &inverseView, float maxDepth,
+                                      const glm::mat4 &lightViewProjection, float shadowBias);
 
         void setCommonUniforms(Shader &shader, const AtmosphereParameters &parameters);
 

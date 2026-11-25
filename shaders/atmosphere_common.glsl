@@ -1,6 +1,8 @@
 #ifndef ATMOSPHERE_COMMON_GLSL
 #define ATMOSPHERE_COMMON_GLSL
 
+#include "common.glsl"
+
 const float PI = 3.14159265359;
 
 layout(binding = 0) uniform sampler2D uTransmittanceLut;
@@ -284,7 +286,8 @@ vec2 skyViewDirectionToUv(vec3 direction, vec3 cameraPosition, ivec2 lutSize)
 AtmosphereResult integrateAtmosphere(
     vec3 cameraPosition,
     vec3 viewDirection,
-    float maxDistance
+    float maxDistance,
+    bool useTerrainShadows
 )
 {
     AtmosphereResult result;
@@ -334,7 +337,13 @@ AtmosphereResult integrateAtmosphere(
         {
             // S(x, li) = Vis(li) * T(x, x + tatmoli)
             vec2 uv = transmittanceRMuToUv(sampleRadius, muSun, lutSize);
-            sunTransmittance = textureLod(uTransmittanceLut, uv, 0.0).rgb;
+            float visibility = 1.0;
+            if (useTerrainShadows)
+            {
+                vec3 worldPosition = position - vec3(0.0, uGroundRadius, 0.0);
+                visibility = computeSunVisibility(worldPosition);
+            }
+            sunTransmittance = visibility * textureLod(uTransmittanceLut, uv, 0.0).rgb;
         }
 
         // σs(x) * p(v,li)

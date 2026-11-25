@@ -36,7 +36,8 @@ void main()
 
     float diffuse = max(dot(normalize(vWorldNormal), uSunDirection), 0.0);
 
-    vec3 directLight = uSunIlluminance * sunTransmittance * diffuse;
+    float visibility = computeSunVisibility(vWorldPosition);
+    vec3 directLight = uSunIlluminance * sunTransmittance * diffuse * visibility;
     vec3 color = vColor * (vec3(ambient) + (1.0 - ambient) * directLight);
 
     fragColor = vec4(color, 1.0);

@@ -20,7 +20,8 @@ void main()
     AtmosphereResult result = integrateAtmosphere(
         uCameraPosition,
         direction,
-        2.0 * uTopRadius
+        2.0 * uTopRadius,
+        false
     );
 
     imageStore(uSkyViewLut, pixel, vec4(result.radiance, 1.0));

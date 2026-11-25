@@ -8,11 +8,13 @@ layout(binding = 1) uniform sampler2D uSkyViewLut;
 layout(binding = 2) uniform sampler3D uAerialPerspectiveLut;
 layout(binding = 3) uniform sampler2D uScene;
 layout(binding = 4) uniform sampler2D uDepth;
+layout(binding = 5) uniform sampler2D uSunView;
 
 uniform float uExposure;
 
 uniform bool uShowTransmittanceLut;
 uniform bool uShowSkyViewLut;
+uniform bool uShowSunView;
 uniform bool uShowAerialPerspectiveLut;
 uniform float uAerialPerspectiveDebugDepth;
 uniform bool uShowDistance;
@@ -94,6 +96,10 @@ void main()
 
         return;
     }
+    else if (uShowSunView)
+    {
+        color = texture(uSunView, vUv).rgb;
+    }
     else
     {
         color = texture(uScene, vUv).rgb;
@@ -132,7 +138,8 @@ void main()
                     AtmosphereResult result = integrateAtmosphere(
                         uCameraPosition,
                         worldDirection,
-                        distanceToTerrain
+                        distanceToTerrain,
+                        true
                     );
 
                     color = result.transmittance * color + result.radiance;

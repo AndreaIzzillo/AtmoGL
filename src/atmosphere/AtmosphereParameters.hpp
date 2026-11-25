@@ -16,6 +16,7 @@ namespace atmogl
         float ozoneHalfWidth = 15e3f;
 
         float mieAsymmetry = 0.8f;
+        float mieDensityMultiplier = 1.0f;
 
         glm::vec3 rayleighScattering = glm::vec3(5.802e-6f, 13.558e-6f, 33.1e-6f);
         glm::vec3 rayleighAbsorption = glm::vec3(0.0f);

@@ -32,13 +32,24 @@ namespace atmogl
     private:
         Window window;
         Framebuffer sceneFramebuffer;
+        Framebuffer sunFramebuffer;
         Camera camera;
 
+        static constexpr float sunNearPlane = 1.0f;
+        static constexpr float sunFarPlane = 120'000.0f;
+        glm::mat4 lightViewProjection = glm::mat4(1.0f);
+        glm::vec3 lastSunDirection = glm::vec3(0.0f);
+        float lastShadowSlopeBias = 0.0f;
+        bool sunViewValid = false;
+
         float exposure = 1.75f;
+        float shadowBias = 48.0f;
+        float shadowSlopeBias = 2.0f;
         float aerialPerspectiveDebugDepth = 0.0f;
         bool skyViewEnabled = true;
         bool aerialPerspectiveEnabled = true;
         bool useAerialPerspectiveLut = true;
+        bool transmittanceDirty = false;
         AtmosphereParameters atmosphereParameters;
 
         std::unique_ptr<GUI> gui;
@@ -46,6 +57,7 @@ namespace atmogl
         std::unique_ptr<Shader> finalShader;
         std::unique_ptr<Shader> screenMeshShader;
         std::unique_ptr<Shader> screenSkyShader;
+        std::unique_ptr<Shader> sunViewShader;
         std::unique_ptr<Mesh> terrain;
         std::unique_ptr<Mesh> screenQuad;
         std::vector<RenderObject> objects;
@@ -61,6 +73,7 @@ namespace atmogl
 
         void loadScene();
         void renderScene();
+        void renderSunView();
         void processScene();
         void presentScene();
         void drawGui();
@@ -83,7 +96,8 @@ namespace atmogl
             TransmittanceLut,
             SkyViewLut,
             AerialPerspectiveLut,
-            Distance
+            Distance,
+            SunView
         };
 
         DisplayMode displayMode = DisplayMode::Scene;
